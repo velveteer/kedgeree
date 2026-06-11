@@ -1,0 +1,139 @@
+/* ==========================================================================
+   Kedgeree — design tokens & bundled fonts (the single source of truth).
+
+   Both kedgeree.css (documentation pages) and kedgeree-source.css (hyperlinked
+   source pages) load THIS first, so the palette and fonts live in exactly one
+   place instead of being copy-pasted across the two stylesheets.
+
+   The light palette lives in :root; dark overrides apply either explicitly
+   (html[data-resolved="dark"], set by kedgeree.js / the inline bootstrap) or,
+   for the no-JS case, via prefers-color-scheme. The two dark blocks are
+   necessarily identical — a media query and an attribute selector cannot be
+   merged in plain CSS — so keep them in sync.
+
+   Tokens used by only one surface (layout sizes on doc pages; --kg-gutter /
+   --kg-line-hl on source pages) are harmless no-ops where unused, so they live
+   here too rather than being split back out.
+   ========================================================================== */
+
+/* ----- Bundled fonts (self-hosted, subset, offline) ---------------------- */
+@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 400; font-display: swap; src: url("fonts/ibm-plex-sans-400.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 600; font-display: swap; src: url("fonts/ibm-plex-sans-600.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 700; font-display: swap; src: url("fonts/ibm-plex-sans-700.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 400; font-display: swap; src: url("fonts/jetbrains-mono-400.woff2") format("woff2"); }
+@font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 700; font-display: swap; src: url("fonts/jetbrains-mono-700.woff2") format("woff2"); }
+
+/* ----- Design tokens: light ---------------------------------------------- */
+:root {
+  --kg-accent:        #6c4cc4;
+  --kg-accent-strong: #5a3db0;
+  --kg-accent-soft:   rgba(108, 76, 196, 0.12);
+
+  --kg-bg:        #fbfbfd;
+  --kg-bg-raised: #ffffff;
+  --kg-bg-sunken: #f3f1f8;
+  --kg-code-bg:   #f4f2fb;
+  --kg-fg:        #1e1b29;
+  --kg-fg-muted:  #5d5775;
+  --kg-fg-faint:  #6c6781;
+  --kg-border:    #e7e3f1;
+  --kg-border-strong: #d6d0e6;
+  --kg-link:      #6c4cc4;
+  --kg-link-visited: #8a52a8;
+  --kg-shadow:    rgba(38, 28, 64, 0.10);
+  --kg-mark:      #fff2a8;
+
+  /* Syntax (shared by documentation and source pages). */
+  --kg-syn-keyword:  #9c3aa0;
+  --kg-syn-type:     #1f7a6b;
+  --kg-syn-var:      var(--kg-fg);
+  --kg-syn-operator: #b23a52;
+  --kg-syn-comment:  #6f697f;
+  --kg-syn-pragma:   #8a5a0c;
+  --kg-syn-string:   #2f7d3a;
+  --kg-syn-char:     #2f7d3a;
+
+  /* Source-page gutter + line highlight. */
+  --kg-gutter:  #75708f;
+  --kg-line-hl: rgba(108, 76, 196, 0.15);
+
+  --kg-sidebar-w: 17rem;
+  --kg-header-h:  3.25rem;
+  --kg-content-max: 52rem;
+
+  --kg-font: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
+  --kg-mono: "JetBrains Mono", "SFMono-Regular", "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  --kg-radius:   10px;
+  --kg-radius-s: 6px;
+}
+
+/* ----- Design tokens: dark ----------------------------------------------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-resolved="light"]) {
+    --kg-accent:        #b49bff;
+    --kg-accent-strong: #c8b6ff;
+    --kg-accent-soft:   rgba(180, 155, 255, 0.16);
+
+    --kg-bg:        #131119;
+    --kg-bg-raised: #1b1924;
+    --kg-bg-sunken: #1f1c2b;
+    --kg-code-bg:   #201d2c;
+    --kg-fg:        #e8e5f2;
+    --kg-fg-muted:  #a8a2be;
+    --kg-fg-faint:  #8d87a3;
+    --kg-border:    #2b2838;
+    --kg-border-strong: #3a3650;
+    --kg-link:      #b49bff;
+    --kg-link-visited: #cf9fe0;
+    --kg-shadow:    rgba(0, 0, 0, 0.4);
+    --kg-mark:      #5a5020;
+
+    --kg-syn-keyword:  #d98fdd;
+    --kg-syn-type:     #58c9b4;
+    --kg-syn-var:      var(--kg-fg);
+    --kg-syn-operator: #ff8aa0;
+    --kg-syn-comment:  #8d87a3;
+    --kg-syn-pragma:   #e0b15e;
+    --kg-syn-string:   #8fd99a;
+    --kg-syn-char:     #8fd99a;
+
+    --kg-gutter:  #888299;
+    --kg-line-hl: rgba(180, 155, 255, 0.18);
+  }
+}
+
+/* Explicit dark (chosen by the visitor — overrides the media query). */
+html[data-resolved="dark"] {
+  --kg-accent:        #b49bff;
+  --kg-accent-strong: #c8b6ff;
+  --kg-accent-soft:   rgba(180, 155, 255, 0.16);
+
+  --kg-bg:        #131119;
+  --kg-bg-raised: #1b1924;
+  --kg-bg-sunken: #1f1c2b;
+  --kg-code-bg:   #201d2c;
+  --kg-fg:        #e8e5f2;
+  --kg-fg-muted:  #a8a2be;
+  --kg-fg-faint:  #8d87a3;
+  --kg-border:    #2b2838;
+  --kg-border-strong: #3a3650;
+  --kg-link:      #b49bff;
+  --kg-link-visited: #cf9fe0;
+  --kg-shadow:    rgba(0, 0, 0, 0.4);
+  --kg-mark:      #5a5020;
+
+  --kg-syn-keyword:  #d98fdd;
+  --kg-syn-type:     #58c9b4;
+  --kg-syn-var:      var(--kg-fg);
+  --kg-syn-operator: #ff8aa0;
+  --kg-syn-comment:  #8d87a3;
+  --kg-syn-pragma:   #e0b15e;
+  --kg-syn-string:   #8fd99a;
+  --kg-syn-char:     #8fd99a;
+
+  --kg-gutter:  #888299;
+  --kg-line-hl: rgba(180, 155, 255, 0.18);
+}

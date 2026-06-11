@@ -1,0 +1,137 @@
+/* ==========================================================================
+   Kedgeree — hyperlinked source pages (Haddock's src/*.html).
+
+   These pages are bare: a single <pre> of tokenised Haskell with hs-* spans
+   and per-line <span id="line-N"> anchors. The palette and fonts come from
+   kedgeree-tokens.css, which every page loads before this file; here we only
+   consume the --kg-* custom properties.
+   ========================================================================== */
+
+/* ----- Page ----- */
+html { background: var(--kg-bg); }
+body {
+  margin: 0;
+  background: var(--kg-bg);
+  color: var(--kg-fg);
+  -webkit-font-smoothing: antialiased;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+pre {
+  margin: 0;
+  padding: 1.5rem 1.5rem 3rem 0;
+  font-family: var(--kg-mono);
+  font-size: 0.84rem;
+  line-height: 1.65;
+  tab-size: 8;
+  -moz-tab-size: 8;
+  overflow-x: auto;
+}
+
+/* ----- Line-number gutter -----
+   kedgeree.js turns each line marker into a clickable .kg-lineno anchor. */
+pre { padding-left: 4.5rem; position: relative; z-index: 0; }
+
+span[id^="line-"] { position: relative; }
+.kg-lineno {
+  position: absolute;
+  left: -4.5rem;
+  width: 3.2rem;
+  text-align: right;
+  color: var(--kg-gutter);
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.kg-lineno:hover { color: var(--kg-accent); }
+
+/* Target-line highlight: bold accent number plus a full-width row overlay
+   (positioned by kedgeree.js). */
+span.kg-line-target > .kg-lineno { color: var(--kg-accent); font-weight: 700; }
+.kg-line-hl-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1.65em;
+  background: var(--kg-line-hl);
+  box-shadow: inset 3px 0 0 var(--kg-accent);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* ----- Syntax ----- */
+.hs-keyword  { color: var(--kg-syn-keyword); }
+.hs-pragma   { color: var(--kg-syn-pragma); font-style: italic; }
+.hs-comment  { color: var(--kg-syn-comment); font-style: italic; }
+.hs-str, .hs-string { color: var(--kg-syn-string); }
+.hs-chr, .hs-char   { color: var(--kg-syn-char); }
+.hs-number   { color: var(--kg-syn-operator); }
+.hs-operator { color: var(--kg-syn-operator); }
+.hs-glyph    { color: var(--kg-syn-operator); }
+.hs-special  { color: var(--kg-fg-muted); }
+.hs-type     { color: var(--kg-syn-type); }
+.hs-var      { color: var(--kg-syn-var); }
+.hs-identifier { color: var(--kg-fg); }
+/* Override Haddock's compound .hs-identifier.hs-* colors. */
+.hs-identifier.hs-var  { color: var(--kg-syn-var); }
+.hs-identifier.hs-type { color: var(--kg-syn-type); }
+
+/* Links on identifiers: keep the syntax color, hint with an underline. */
+pre a { color: inherit; text-decoration: none; }
+pre a:hover { text-decoration: underline; text-decoration-color: var(--kg-accent); }
+
+/* Definition anchors get a subtle highlight when targeted. */
+:target { background: var(--kg-line-hl); border-radius: 3px; }
+
+/* ----- Type-on-hover tooltips (driven by Haddock's highlight.js) -----
+   Override Haddock's yellow hover and tooltip, unreadable in dark. */
+span.annot { position: relative; color: inherit; }
+span.annot:hover { background-color: var(--kg-accent-soft); }
+span.annot span.annottext {
+  position: absolute;
+  display: none;
+  left: 0;
+  top: 1.6em;
+  z-index: 30;
+  white-space: pre;
+  font-size: 0.78rem;
+  padding: 0.5rem 0.7rem;
+  background: var(--kg-bg-raised);
+  color: var(--kg-fg);
+  border: 1px solid var(--kg-border);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+span.annot:hover span.annottext { display: block; }
+
+/* ----- Floating toolbar injected by kedgeree.js on source pages ----- */
+.kg-src-toolbar {
+  position: fixed;
+  top: 0.75rem;
+  right: 0.9rem;
+  z-index: 40;
+  display: flex;
+  gap: 0.4rem;
+}
+.kg-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--kg-border);
+  border-radius: 6px;
+  background: var(--kg-bg-raised);
+  color: var(--kg-fg-muted);
+  cursor: pointer;
+  text-decoration: none;
+}
+.kg-iconbtn:hover { color: var(--kg-fg); }
+.kg-iconbtn svg { width: 1.1rem; height: 1.1rem; }
+.kg-lambda { color: var(--kg-accent); font-family: var(--kg-mono); font-weight: 700; line-height: 1; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

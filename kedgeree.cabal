@@ -1,0 +1,54 @@
+cabal-version:      2.4
+name:               kedgeree
+version:            0.1.0
+synopsis:           A modern theme for Haddock documentation
+description:
+  Kedgeree post-processes Haddock HTML output to give it a modern look:
+  light / dark / auto theming, a sticky sidebar, keyboard-driven search,
+  and polished hyperlinked-source pages. It piggy-backs on the HTML that
+  Haddock already produces — run @kedgeree@ on a generated doc directory and
+  it injects a small CSS + JS theme in place.
+
+license:            BSD-3-Clause
+license-file:       LICENSE
+author:             Josh Miller
+maintainer:         joshua.ian.miller@pm.me
+category:           Development
+homepage:           https://github.com/velveteer/kedgeree
+bug-reports:        https://github.com/velveteer/kedgeree/issues
+build-type:         Simple
+extra-source-files:
+  README.md
+  assets/kedgeree.css
+  assets/kedgeree-source.css
+  assets/kedgeree-tokens.css
+  assets/kedgeree.js
+  assets/kedgeree-logo.svg
+  assets/fonts/*.woff2
+
+source-repository head
+  type:     git
+  location: https://github.com/velveteer/kedgeree.git
+
+executable kedgeree
+  main-is:          Main.hs
+  hs-source-dirs:   app, src
+  other-modules:
+    Kedgeree.Assets
+    Kedgeree.Process
+    Kedgeree.Rewrite
+    Paths_kedgeree
+
+  autogen-modules:  Paths_kedgeree
+  build-depends:
+      async                 >=2.2  && <2.3
+    , base                  >=4.12 && <5
+    , bytestring            >=0.10 && <0.13
+    , directory             >=1.3  && <1.4
+    , file-embed            >=0.0.10 && <0.1
+    , filepath              >=1.4  && <1.6
+    , optparse-applicative  >=0.16 && <0.20
+    , text                  >=1.2  && <2.2
+
+  default-language: Haskell2010
+  ghc-options:      -Wall -threaded -rtsopts "-with-rtsopts=-N"
