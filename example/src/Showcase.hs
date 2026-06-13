@@ -82,6 +82,7 @@ module Showcase
     -- * Type classes
   , Container (..)
   , Convert (..)
+  , Describe (..)
 
     -- * GADTs & existentials
   , Expr (..)
@@ -224,6 +225,15 @@ instance (Show a) => Container [a] where
   insert = (:)
   size = length
 
+-- | 'Maybe' is a (degenerate) container holding at most one element.
+--
+-- @since 0.3.0
+instance (Show a) => Container (Maybe a) where
+  type Elem (Maybe a) = a
+  empty = Nothing
+  insert x _ = Just x
+  size = maybe 0 (const 1)
+
 -- | A multi-parameter type class for lossy conversions.
 class Convert a b where
   -- | Convert from @a@ to @b@.
@@ -233,6 +243,56 @@ class Convert a b where
 -- instance signature renders when it wraps.
 instance Convert (Either String (Maybe (Int, Int))) (Either String (Maybe [(String, [Bool])])) where
   convert _ = Right Nothing
+
+-- | A class with a deliberately long list of instances, so the stacked instance
+-- accordions can be seen en masse on a single page.
+--
+-- @since 0.4.0
+class Describe a where
+  -- | Render a one-line human description.
+  describe :: a -> String
+
+instance Describe Bool where
+  describe b = if b then "true" else "false"
+
+instance Describe Char where
+  describe c = [c]
+
+instance Describe Int where
+  describe = show
+
+instance Describe Integer where
+  describe = show
+
+instance Describe Float where
+  describe = show
+
+instance Describe Double where
+  describe = show
+
+instance Describe Ordering where
+  describe = show
+
+instance Describe () where
+  describe _ = "()"
+
+instance (Describe a) => Describe [a] where
+  describe = unwords . map describe
+
+instance (Describe a) => Describe (Maybe a) where
+  describe = maybe "nothing" describe
+
+instance (Describe a, Describe b) => Describe (Either a b) where
+  describe = either describe describe
+
+instance (Describe a, Describe b) => Describe (a, b) where
+  describe (a, b) = describe a ++ ", " ++ describe b
+
+instance (Describe a, Describe b, Describe c) => Describe (a, b, c) where
+  describe (a, b, c) = describe a ++ ", " ++ describe b ++ ", " ++ describe c
+
+instance Describe Point where
+  describe (Point x y) = "(" ++ show x ++ ", " ++ show y ++ ")"
 
 -- | A simple, type-indexed expression GADT.
 --

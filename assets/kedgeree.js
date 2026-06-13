@@ -337,7 +337,16 @@
     return data.map(function (e) {
       var mod = typeof e.module === "string" ? e.module
         : (e.module && e.module.name) || "";
-      return { name: e.name || "", module: mod, link: baseHref() + (e.link || "") };
+      // Haddock folds a class/data's members into one entry, so `name` is a
+      // space-separated list ("Container empty insert Elem size $dmsize") meant
+      // for matching. Match on the whole string, but only show the first token.
+      var full = e.name || "";
+      return {
+        name: full.split(/\s+/)[0],
+        search: full.toLowerCase(),
+        module: mod,
+        link: baseHref() + (e.link || ""),
+      };
     }).filter(function (e) { return e.name && e.link; });
   }
 
@@ -397,9 +406,10 @@
     var items = searchState.items, out = [];
     for (var i = 0; i < items.length && out.length < 50; i++) {
       var it = items[i];
-      if (it.name.toLowerCase().indexOf(q) !== -1) out.push(it);
+      if (it.search.indexOf(q) !== -1) out.push(it);
     }
-    // Prefix matches first, then shorter names.
+    // Entries whose displayed (primary) name prefix-matches rank first, then
+    // shorter names.
     out.sort(function (a, b) {
       var ap = a.name.toLowerCase().indexOf(q) === 0 ? 0 : 1;
       var bp = b.name.toLowerCase().indexOf(q) === 0 ? 0 : 1;
@@ -431,7 +441,11 @@
   function gotoSel() {
     var r = searchState.results || [];
     var it = r[searchState.sel];
-    if (it) location.href = it.link;
+    if (!it) return;
+    // Close first: a same-page result only changes the hash, so the page never
+    // unloads and the overlay would otherwise stay open over the target.
+    closeSearch();
+    location.href = it.link;
   }
 
   /* ====================================================================== */
@@ -500,6 +514,100 @@
       // Drop it in right after the defined name, with a leading space.
       def.parentNode.insertBefore(sig, def.nextSibling);
       def.parentNode.insertBefore(document.createTextNode(" "), sig);
+    });
+  }
+
+  // Re-flow an over-long type signature into the canonical multi-line shape:
+  // break before each top-level :: => and -> (never inside parens or brackets),
+  // continuation lines indented two columns so the operators line up. Applied
+  // only when the single-line form actually overflows its box, so short sigs are
+  // left as they are. Runs before enhanceSourceLinks, so the inserted breaks end
+  // up inside the pre-wrap .kg-sig.
+  function formatLongSignatures() {
+    $$("#interface .src").forEach(function (src) {
+      if (src.dataset.kgWrapped) return;
+      if (!sigOverflows(src)) return;
+      if (breakTypeSig(src)) {
+        src.dataset.kgWrapped = "1";
+        src.classList.add("kg-multiline");
+      }
+    });
+  }
+
+  function sigOverflows(src) {
+    var avail = src.clientWidth;
+    if (avail > 0) {
+      // Hide trailing Source / # links so they don't inflate the measurement.
+      var links = $$("a.link, a.selflink", src);
+      links.forEach(function (a) { a.style.display = "none"; });
+      var prev = src.style.whiteSpace;
+      src.style.whiteSpace = "nowrap";
+      var over = src.scrollWidth - avail > 8;
+      src.style.whiteSpace = prev;
+      links.forEach(function (a) { a.style.display = ""; });
+      return over;
+    }
+    // Unmeasurable (inline, or inside a collapsed details): length heuristic.
+    return src.textContent.replace(/\s+/g, " ").trim().length > 64;
+  }
+
+  function breakTypeSig(root) {
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    var nodes = [];
+    for (var n = walker.nextNode(); n; n = walker.nextNode()) nodes.push(n);
+    var depth = 0;
+    var seen = false; // any non-space content emitted, so we never lead with a break
+    var broke = false;
+    nodes.forEach(function (node) {
+      var t = node.textContent;
+      var out = "";
+      var i = 0;
+      while (i < t.length) {
+        var c = t.charAt(i);
+        if (c === "(" || c === "[") { depth++; seen = true; out += c; i++; continue; }
+        if (c === ")" || c === "]") { if (depth > 0) depth--; seen = true; out += c; i++; continue; }
+        if (depth === 0 && seen) {
+          var two = t.substr(i, 2);
+          if (two === "::" || two === "=>" || two === "->") {
+            out = out.replace(/[ \t]+$/, "");
+            out += "\n  " + two;
+            i += 2;
+            broke = true;
+            continue;
+          }
+        }
+        if (c !== " " && c !== "\t" && c !== "\n") seen = true;
+        out += c;
+        i++;
+      }
+      node.textContent = out;
+    });
+    return broke;
+  }
+
+  // The chevron is only an indicator — make the whole instance card header
+  // toggle. We toggle the linked <details> directly (forwarding a click to
+  // Haddock's control proved unreliable) and keep the chevron class in sync.
+  // The chevron itself is left to Haddock's own handler. No-JS users fall back
+  // to the native <summary> toggle (see the body.js-enabled CSS gating).
+  function enlargeInstanceToggles() {
+    $$("#interface .instance.details-toggle-control[data-details-id]").forEach(function (ctrl) {
+      var det = document.getElementById(ctrl.getAttribute("data-details-id"));
+      var row = ctrl.closest("tr");
+      // Haddock emits a literal space after the (empty) chevron span. Drop it so
+      // the gap to the instance name comes only from the chevron's margin, the
+      // same as every other toggle.
+      var after = ctrl.nextSibling;
+      if (after && after.nodeType === 3) after.textContent = after.textContent.replace(/^\s+/, "");
+      if (!det || !row || row.dataset.kgToggle) return;
+      row.dataset.kgToggle = "1";
+      row.addEventListener("click", function (e) {
+        if (e.target.closest("a")) return; // Source / # / type links
+        if (e.target.closest(".details-toggle-control")) return; // chevron → Haddock
+        det.open = !det.open;
+        ctrl.classList.toggle("collapser", det.open);
+        ctrl.classList.toggle("expander", !det.open);
+      });
     });
   }
 
@@ -601,6 +709,8 @@
     enhanceHeader();
     buildSidebar();
     inlineArgSignatures();
+    formatLongSignatures();
+    enlargeInstanceToggles();
     enhanceSourceLinks();
     enhanceSource();
     enhanceFooter();

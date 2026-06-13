@@ -19,21 +19,47 @@ body.js-enabled .hide-when-js-enabled { display: none; }
 .show { display: inherit; }
 .hidden { display: none !important; }
 
-/* Collapse/expand chevrons. Haddock toggles .collapser (open) / .expander (closed). */
+/* Collapse/expand chevrons. Haddock's bundle JS toggles .collapser (open) /
+   .expander (closed) on the toggle controls. Drawn as an SVG chevron via
+   mask-image (background-color is the ink) so every toggle shows the same crisp
+   icon. The bundled subset fonts have no triangle glyph to use instead. A
+   matching .noexpander spacer keeps module names aligned in the module tree. */
 .collapser, .expander, .details-toggle-control { cursor: pointer; }
 .expander::before,
 .collapser::before {
+  content: "";
   display: inline-block;
-  width: 1.1em;
-  color: var(--kg-fg-faint);
-  font-size: 0.9em;
+  width: 0.7em;
+  height: 1em;
+  margin-right: 0.28em;
+  vertical-align: -0.18em;
+  background-color: var(--kg-fg-faint);
+  -webkit-mask: var(--kg-chevron) left center / auto 0.66em no-repeat;
+  mask: var(--kg-chevron) left center / auto 0.66em no-repeat;
 }
-.expander::before { content: "\25B8"; }   /* ▸ */
-.collapser::before { content: "\25BE"; }   /* ▾ */
-.noexpander::before { content: ""; }
+.collapser::before {
+  -webkit-mask-image: var(--kg-chevron-open);
+  mask-image: var(--kg-chevron-open);
+  -webkit-mask-size: 0.66em auto;
+  mask-size: 0.66em auto;
+}
+.noexpander::before { content: ""; display: inline-block; width: 0.98em; }
+/* Uniform hover for every toggle (module tree, instances, instance/Examples
+   section headers, synopsis): accent the chevron, and brighten heading-style
+   toggles. */
+body.js-enabled .details-toggle-control:hover::before,
+body.js-enabled #synopsis summary:hover::before { background-color: var(--kg-accent); }
+body.js-enabled h4.details-toggle-control { transition: color 0.12s ease; }
+body.js-enabled h4.details-toggle-control:hover { color: var(--kg-fg); }
 
 /* Make native controls (checkboxes, scrollbars, form fields) match the theme. */
-:root { color-scheme: light; }
+:root {
+  color-scheme: light;
+  /* One chevron icon, used by every toggle (mask-image, so background-color is
+     the ink and it recolours on hover). */
+  --kg-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 14' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.6 2 6.2 7 1.6 12'/%3E%3C/svg%3E");
+  --kg-chevron-open: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 8' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 1.6 7 6.2 12 1.6'/%3E%3C/svg%3E");
+}
 html[data-resolved="dark"] { color-scheme: dark; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-resolved="light"]) { color-scheme: dark; }
@@ -327,7 +353,7 @@ h2, h3, h4 { letter-spacing: -0.01em; }
 
 /* Doc sub-headings (=== / ==== in doc comments, e.g. "Examples"). They are
    collapsible via Haddock's details-toggle, hence the pointer cursor from
-   .details-toggle-control; give them real spacing and weight so they read as
+   .details-toggle-control. Give them real spacing and weight so they read as
    section labels rather than cramped bold text. */
 .subheading {
   font-size: 0.95rem;
@@ -466,10 +492,24 @@ td.src,
   list-style: none;
 }
 #synopsis summary::-webkit-details-marker { display: none; }
-/* Chevrons as CSS escapes (not literal glyphs) so they never mojibake when the
-   stylesheet's encoding can't be inferred — spacing via margin, not a string. */
-#synopsis summary::before { content: "\25B8"; margin-right: 0.4em; color: var(--kg-fg-faint); }
-#synopsis details[open] summary::before { content: "\25BE"; }
+/* Same chevron icon as every other toggle (see :root --kg-chevron). */
+#synopsis summary::before {
+  content: "";
+  display: inline-block;
+  width: 0.7em;
+  height: 1em;
+  margin-right: 0.3em;
+  vertical-align: -0.18em;
+  background-color: var(--kg-fg-faint);
+  -webkit-mask: var(--kg-chevron) left center / auto 0.66em no-repeat;
+  mask: var(--kg-chevron) left center / auto 0.66em no-repeat;
+}
+#synopsis details[open] summary::before {
+  -webkit-mask-image: var(--kg-chevron-open);
+  mask-image: var(--kg-chevron-open);
+  -webkit-mask-size: 0.66em auto;
+  mask-size: 0.66em auto;
+}
 #synopsis ul.details-toggle { margin: 0; padding: 0.5rem 1rem; list-style: none; }
 #synopsis li.src.short {
   background: none;
@@ -523,6 +563,13 @@ a.link:hover, a.selflink:hover { color: var(--kg-accent); text-decoration: none;
    already sit where flex will place them — no jump on the first paint. */
 .src:not(.kg-srcrow) > a.link { float: right; margin-left: 0.6rem; }
 .src:not(.kg-srcrow) > a.selflink { float: right; margin-left: 0.6rem; opacity: 0; }
+
+/* Arrow-aligned multi-line signatures (formatLongSignatures inserts the breaks
+   before each top-level :: => ->). The explicit two-space indent on every
+   continuation line does the aligning, so drop the soft-wrap hanging indent the
+   .kg-sig otherwise carries, and make sure the breaks are honoured. */
+.kg-multiline { white-space: pre-wrap; }
+.kg-multiline .kg-sig { padding-left: 0; text-indent: 0; }
 
 /* ==========================================================================
    Sub-blocks: constructors, methods, instances
@@ -590,7 +637,16 @@ a.link:hover, a.selflink:hover { color: var(--kg-accent); text-decoration: none;
 }
 .subs.fields ul li > .doc p { margin: 0; }
 
-/* Instances — collapsible. */
+/* ==========================================================================
+   Instances — stacked accordion cards
+   Haddock renders each instance as a head row (its signature + doc + a toggle)
+   followed by a detail row (a <details> it shows/hides). We box each instance:
+   the head is a rounded, clickable card; when open, the detail row joins it into
+   one box (squared corners between them). Nested rows inside the body (associated
+   types, method panels) are reset flat so we never stack cards inside cards.
+   Open/closed comes from Haddock's JS, which adds .collapser / .expander to the
+   toggle and toggles [open] on the detail <details>.
+   ========================================================================== */
 .subs.instances { margin-top: 1rem; }
 h4.instances {
   font-size: 0.85rem;
@@ -600,69 +656,134 @@ h4.instances {
   padding: 0.3rem 0;
   user-select: none;
 }
-/* The h4 chevron is handled by the shared .collapser/.expander rules. */
-.instances > details > summary { list-style: none; }
-.instances > details > summary::-webkit-details-marker { display: none; }
-/* Orphan instances render in a bare #section.orphans table with no
-   .subs.instances wrapper, so include it alongside .instances throughout. */
+/* The native <summary> toggles are hide-when-js-enabled — only the no-JS path
+   sees them, where they ARE the disclosure control, so keep their native marker
+   (we don't hide it). With JS they're display:none, replaced by the chevron. */
+
+/* Block-ify the table so rows can be card pieces. */
 .instances table,
 [id="section.orphans"] table { width: 100%; border-collapse: collapse; }
-/* Stack each instance: the head on its own line and the description on the line
-   below it — full width and indented — rather than scrunched into a side-by-side
-   table column where a long head squeezes the prose into a sliver. */
 .instances tbody, .instances tr, .instances td,
 [id="section.orphans"] tbody,
 [id="section.orphans"] tr,
 [id="section.orphans"] td { display: block; width: auto; }
 .instances td,
 [id="section.orphans"] td { word-break: break-word; overflow-wrap: anywhere; }
+.inst-left { display: inline; }
+
+/* Head row = the accordion header (a rounded card top). */
+.instances tr:has(> td.src),
+[id="section.orphans"] tr:has(> td.src) {
+  margin-top: 0.4rem;
+  border: 1px solid var(--kg-border);
+  border-radius: var(--kg-radius-s);
+  background: var(--kg-bg-raised);
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+/* The header is the toggle only when JS runs (no-JS uses the native <summary>
+   inside the body), so the click affordances are gated on body.js-enabled. */
+body.js-enabled .instances tr:has(> td.src),
+body.js-enabled [id="section.orphans"] tr:has(> td.src) { cursor: pointer; }
+body.js-enabled .instances tr:has(> td.src):hover,
+body.js-enabled [id="section.orphans"] tr:has(> td.src):hover {
+  border-color: var(--kg-accent);
+  background: var(--kg-accent-soft);
+}
+/* Accent the chevron on hover too, so the whole header clearly reads as a control. */
+body.js-enabled .instances tr:has(> td.src):hover .expander::before,
+body.js-enabled .instances tr:has(> td.src):hover .collapser::before,
+body.js-enabled [id="section.orphans"] tr:has(> td.src):hover .expander::before,
+body.js-enabled [id="section.orphans"] tr:has(> td.src):hover .collapser::before {
+  background: var(--kg-accent);
+}
+/* (Direct-hover chevron accent is handled uniformly for every toggle near the
+   .expander/.collapser definition, so instance chevrons match the rest.) */
 .instances td.src,
 [id="section.orphans"] td.src {
   background: none;
   border: none;
   border-radius: 0;
-  padding: 0.45rem 0.5rem 0.15rem;
+  padding: 0.55rem 0.75rem 0.55rem 0.85rem;
   font-size: 0.83rem;
 }
+/* (Chevron sizing/placement is unified at the .expander/.collapser definition —
+   the instance card chevron inherits it and so lines up with the card rail.) */
+/* The instance's own doc. Aligned to the card's content edge (the same left
+   rail as the expanded body below it), not under the signature text, so a
+   card's doc, "Defined in" line and sub-sections all share one consistent
+   left edge across every instance. */
 .instances td.doc,
 [id="section.orphans"] td.doc {
-  padding: 0 0.5rem 0.5rem 1.6rem;
+  padding: 0 0.85rem 0.55rem;
   color: var(--kg-fg-muted);
   font-size: 0.85rem;
 }
 .instances td.doc.empty,
 [id="section.orphans"] td.doc.empty { display: none; }
 .instances td.doc p,
-[id="section.orphans"] td.doc p { margin: 0.15rem 0; }
-/* One divider per instance, after the head (and its description) — the
-   expandable methods row (td[colspan]) carries none. */
-.instances tr:not(:has(td[colspan])),
-[id="section.orphans"] tr:not(:has(td[colspan])) { border-bottom: 1px solid var(--kg-border); }
-/* Plain inline, not inline-flex: flex turns the head's text and links into flex
-   items and eats the whitespace between them (jamming "Semigroup Point" etc.). */
-.inst-left { display: inline; }
+[id="section.orphans"] td.doc p { margin: 0.1rem 0; }
 
-/* The per-instance arrow is handled by the shared .collapser/.expander rules. */
-
-/* Expanded instance detail — an indented, readable sub-panel, not a card. */
-.instances td[colspan] { padding: 0; }
-.instances td[colspan] > details { margin: 0; }
-.instances td[colspan] > details > summary { list-style: none; }
-.instances td[colspan] > details > summary::-webkit-details-marker { display: none; }
-.instances td[colspan] > details > p {
-  margin: 0.5rem 0 0.4rem;
-  color: var(--kg-fg-muted);
-  font-size: 0.82rem;
+/* Open head: square the bottom so the detail body joins into one box. */
+.instances tr:has(.collapser),
+[id="section.orphans"] tr:has(.collapser) {
+  border-bottom: none;
+  border-radius: var(--kg-radius-s) var(--kg-radius-s) 0 0;
 }
-.instances td[colspan] .subs.methods {
-  margin: 0.25rem 0 0.9rem;
-  padding: 0.5rem 0.85rem;
+
+/* Detail row = the accordion body. Completes the box when open, gone when shut. */
+.instances tr:has(> td[colspan]),
+[id="section.orphans"] tr:has(> td[colspan]) {
+  border: 1px solid var(--kg-border);
+  border-top: none;
+  border-radius: 0 0 var(--kg-radius-s) var(--kg-radius-s);
+  background: var(--kg-bg-raised);
+}
+/* Hide a closed detail row only with JS (the chevron/header is the toggle then).
+   Without JS the row stays put so its native <summary> toggle is reachable.
+   Scope to the direct details so a nested open child doesn't keep a closed
+   parent's empty box visible. */
+body.js-enabled .instances tr:has(> td[colspan]):not(:has(> td[colspan] > details[open])),
+body.js-enabled [id="section.orphans"] tr:has(> td[colspan]):not(:has(> td[colspan] > details[open])) {
+  display: none;
+}
+.instances td[colspan],
+[id="section.orphans"] td[colspan] { padding: 0.1rem 0.85rem 0.7rem; }
+/* Per-instance "Instance details" summary: hide-when-js-enabled, so its native
+   marker only shows under no-JS, where it is the disclosure control — kept. */
+/* "Defined in ..." provenance — quiet. */
+.instances td[colspan] > details > p,
+[id="section.orphans"] td[colspan] > details > p {
+  margin: 0.4rem 0 0.5rem;
+  color: var(--kg-fg-faint);
+  font-size: 0.78rem;
+}
+
+/* Inside the body, nested rows (associated-type / method sub-tables) are flat,
+   not their own cards. */
+.instances td[colspan] tr,
+[id="section.orphans"] td[colspan] tr {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+}
+.instances td[colspan] td.src,
+[id="section.orphans"] td[colspan] td.src { padding: 0.15rem 0; }
+.instances td[colspan] td.doc,
+[id="section.orphans"] td[colspan] td.doc { padding: 0 0 0.3rem 1.2rem; }
+.instances td[colspan] .subs,
+[id="section.orphans"] td[colspan] .subs { margin: 0.3rem 0 0.5rem; }
+.instances td[colspan] .subs > .caption,
+[id="section.orphans"] td[colspan] .subs > .caption { margin-bottom: 0.2rem; }
+.instances td[colspan] .subs.methods,
+[id="section.orphans"] td[colspan] .subs.methods {
+  padding: 0.4rem 0.7rem;
   background: var(--kg-bg-sunken);
   border: 1px solid var(--kg-border);
   border-radius: var(--kg-radius-s);
 }
-.instances td[colspan] .subs.methods .caption { margin-bottom: 0.25rem; }
-.instances td[colspan] .subs.methods p.src {
+.instances td[colspan] .subs.methods p.src,
+[id="section.orphans"] td[colspan] .subs.methods p.src {
   background: none;
   border: none;
   box-shadow: none;
@@ -927,7 +1048,13 @@ table.info th { font-weight: 600; color: var(--kg-fg-faint); }
 }
 #module-list ul { list-style: none; margin: 0; padding-left: 0; }
 #module-list details > ul { padding-left: 1.3rem; }
-#module-list .module { display: inline-flex; align-items: baseline; gap: 0.15rem; padding: 0.18rem 0; }
+/* Newer Haddock wraps submodules in a <details> — keep it flush (and tame
+   Chrome's ::details-content wrapper) so a module's submodules don't open a
+   vertical gap before the next top-level module. */
+#module-list details { margin: 0; padding: 0; }
+#module-list details::details-content { margin: 0; padding: 0; }
+#module-list li { margin: 0; }
+#module-list .module { display: flex; align-items: baseline; gap: 0.15rem; padding: 0.18rem 0; }
 #module-list .module > .noexpander { width: 1.1em; }
 
 /* Fixity annotations (infixl 6 …). */
