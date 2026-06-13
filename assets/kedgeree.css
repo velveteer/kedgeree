@@ -1054,8 +1054,19 @@ table.info th { font-weight: 600; color: var(--kg-fg-faint); }
 #module-list details { margin: 0; padding: 0; }
 #module-list details::details-content { margin: 0; padding: 0; }
 #module-list li { margin: 0; }
-#module-list .module { display: flex; align-items: baseline; gap: 0.15rem; padding: 0.18rem 0; }
-#module-list .module > .noexpander { width: 1.1em; }
+#module-list .module {
+  display: block;
+  padding: 0.2rem 0.4rem;
+  margin: 0 -0.4rem;
+  border-radius: var(--kg-radius-s);
+  white-space: nowrap;
+  transition: background-color 0.12s ease;
+}
+/* Hover highlight, consistent with the other collapsible toggles: tint the row
+   and accent the chevron. */
+#module-list .module:hover { background: var(--kg-accent-soft); }
+#module-list .module:hover .expander::before,
+#module-list .module:hover .collapser::before { background-color: var(--kg-accent); }
 
 /* Fixity annotations (infixl 6 …). */
 .fixity {

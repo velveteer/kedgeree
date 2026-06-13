@@ -40,6 +40,9 @@ jobs:
       - name: Build kedgeree
         run: |
           cabal update
+          # Force re-embedding of the theme assets: file-embed does not always
+          # invalidate a cached build when only assets/ changed.
+          touch src/Kedgeree/Assets.hs
           cabal build
 
       - name: Render the example with the Kedgeree theme
