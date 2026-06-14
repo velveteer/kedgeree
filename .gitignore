@@ -6,6 +6,4 @@ dist/
 cabal.project.local*
 example/site/
 screenshot.png
-stress/
-example/landing-site/
-example/hp-demo/
+.landing-build/

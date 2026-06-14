@@ -33,6 +33,7 @@ jobs:
           path: |
             ${{ steps.setup.outputs.cabal-store }}
             dist-newstyle
+            .landing-build
           key: ${{ runner.os }}-ghc-${{ steps.setup.outputs.ghc-version }}-${{ hashFiles('**/*.cabal') }}
           restore-keys: |
             ${{ runner.os }}-ghc-${{ steps.setup.outputs.ghc-version }}-
@@ -45,8 +46,11 @@ jobs:
           touch src/Kedgeree/Assets.hs
           cabal build
 
-      - name: Render the example with the Kedgeree theme
-        run: ./example/build-demo.sh
+      - name: Build the example landing site
+        # Builds kedgeree-demo plus a few real Hackage packages (lens, aeson,
+        # containers) into a themed multi-package landing. The first run builds
+        # those packages' docs; later runs reuse the cached .landing-build dir.
+        run: ./example/build-site.sh
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

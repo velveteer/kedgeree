@@ -147,9 +147,16 @@ stripped. MathJax is left untouched.
 
 ```sh
 cabal build
-./example/build-demo.sh                 # generate themed docs for the example package
+./example/build-demo.sh                 # themed docs for the demo modules only (fast)
 python3 -m http.server -d example/site  # then open http://localhost:8000
 ```
 
-The `example/` package exercises sections, records, classes, instances,
-operators and source rendering: a good page to iterate the theme against.
+The demo modules exercise sections, records, classes, instances, operators and
+source rendering: a good page to iterate the theme against, and `build-demo.sh`
+rebuilds them in a second or two.
+
+`./example/build-site.sh` builds the deployed site instead: a multi-package
+landing with `kedgeree-demo` alongside a few real Hackage libraries (lens,
+aeson, containers), so the theme is shown on real-world docs too. The first run
+builds those packages (cached afterwards under `.landing-build/`). This is what
+the Pages workflow publishes.
