@@ -53,8 +53,9 @@ kedgeree ./haddocks --landing "My project"
 ```
 
 `--hackage` documents your packages and links their dependencies to Hackage.
-`--landing` writes a themed front page listing the packages (see below). Leave
-it off and kedgeree simply themes the index `haddock-project` already wrote.
+`--landing` writes a themed front page listing the packages (see below), each
+with the one-line `synopsis` read from its `.cabal`. Leave `--landing` off and
+kedgeree simply themes the index `haddock-project` already wrote.
 
 ### Stack
 
@@ -96,6 +97,7 @@ kedgeree [OPTIONS] DOC_HTML_DIR
   --force                           Re-theme pages already themed at this version
   --landing TITLE                   Generate a landing page (index.html) for a multi-package tree
   --package NAME                    Curate and order the --landing list (repeatable)
+  --project-root DIR                Override the auto-detected project root for landing synopses
 ```
 
 ### A multi-package landing page
@@ -118,6 +120,13 @@ kedgeree ./site --landing "My project" \
   --package project-pkg \
   --package project-acme
 ```
+
+Each package's one-line description comes from the `synopsis` field of its
+`.cabal`, matched by package name. Kedgeree finds the sources automatically by
+walking up from the doc tree to the nearest `cabal.project`, `stack.yaml`, or
+`.cabal`, so no flag is needed when the docs live inside the project. Pass
+`--project-root DIR` only to point it somewhere else. Packages with no synopsis
+just show the name.
 
 Kedgeree bundles **IBM Plex Sans** (UI/prose) and **JetBrains Mono** (code)
 (~120 KB total), so pages render fully offline with a consistent, modern look

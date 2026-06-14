@@ -136,6 +136,8 @@ echo ">> cabal haddock-project (builds the multi-package doc tree)..."
 
 doc="$proj/haddocks"
 echo ">> theming the tree + generating the landing page..."
+# Synopses are read automatically: kedgeree walks up from the doc tree to the
+# project's cabal.project. (--project-root would override that.)
 ( cd "$root" && cabal run -v0 kedgeree -- "$doc" --landing "Acme" )
 
 echo

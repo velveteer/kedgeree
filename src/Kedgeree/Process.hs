@@ -18,8 +18,11 @@ import Control.Concurrent.QSem (newQSem, signalQSem, waitQSem)
 import Control.Exception (bracket_)
 import Control.Monad (forM, join, when)
 import qualified Data.ByteString as BS
+import Data.Char (isAlpha)
 import Data.Foldable (traverse_)
 import Data.List (find, nub)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.Maybe (catMaybes)
 import qualified Data.Set as Set
 import Data.Text (Text)
@@ -30,6 +33,7 @@ import System.Directory
   , doesDirectoryExist
   , doesFileExist
   , listDirectory
+  , makeAbsolute
   , pathIsSymbolicLink
   )
 import System.FilePath
@@ -43,7 +47,7 @@ import System.FilePath
 import System.IO (hPutStrLn, stderr)
 
 import Kedgeree.Assets (assets)
-import Kedgeree.Rewrite (Inject (..), landingPage, marker, rewriteMain, rewriteSource)
+import Kedgeree.Rewrite (Inject (..), displayName, landingPage, marker, rewriteMain, rewriteSource)
 
 -- | Parsed command-line options.
 data Options = Options
@@ -68,6 +72,8 @@ data Options = Options
   , optPackages :: [Text]
   -- ^ curate which package subdirectories the landing lists, and their order;
   -- empty means auto-discover every package directory, alphabetically
+  , optProjectRoot :: Maybe FilePath
+  -- ^ override the auto-detected project root used to read package synopses
   }
 
 -- | Apply the theme to @optDir@ and everything beneath it.
@@ -134,14 +140,14 @@ run opts = do
       -- Opt-in multi-package landing page at the tree root.
       case optLanding opts of
         Nothing -> pure ()
-        Just title -> writeLanding inj dir title (optPackages opts)
+        Just title -> writeLanding inj dir title (optPackages opts) (optProjectRoot opts)
 
 -- | Write a themed landing page to @dir\/index.html@ listing the package
 -- directories beneath @dir@. With no @wanted@ names it lists every discovered
 -- package alphabetically; otherwise it keeps exactly those, in the given order,
 -- warning on @stderr@ about any that do not exist.
-writeLanding :: Inject -> FilePath -> Text -> [Text] -> IO ()
-writeLanding inj dir title wanted = do
+writeLanding :: Inject -> FilePath -> Text -> [Text] -> Maybe FilePath -> IO ()
+writeLanding inj dir title wanted mroot = do
   found <- Set.fromList <$> discoverPackages dir
   selected <- case wanted of
     [] -> pure (Set.toAscList found)
@@ -151,9 +157,16 @@ writeLanding inj dir title wanted = do
   case selected of
     [] -> hPutStrLn stderr $ "kedgeree: --landing: no packages found under " <> dir
     pkgs -> do
+      -- One-line descriptions, looked up by package name (the dir name with any
+      -- version suffix dropped) against the project's .cabal synopses. The
+      -- project root is auto-detected by walking up from the doc tree, unless an
+      -- explicit --project-root overrides it.
+      root <- maybe (findProjectRoot dir) (pure . Just) mroot
+      synopses <- maybe (pure Map.empty) readSynopses root
       let dest = dir </> "index.html"
           prefix = T.pack assetDirName <> "/"
-      BS.writeFile dest (TE.encodeUtf8 (landingPage inj prefix title pkgs))
+          entries = map (\p -> (p, Map.lookup (displayName p) synopses)) pkgs
+      BS.writeFile dest (TE.encodeUtf8 (landingPage inj prefix title entries))
       putStrLn $
         "kedgeree: wrote landing page ("
           <> show (length pkgs)
@@ -162,6 +175,83 @@ writeLanding inj dir title wanted = do
   where
     warnMissing pkg =
       hPutStrLn stderr $ "kedgeree: --package not found under " <> dir <> ": " <> T.unpack pkg
+
+-- | Walk up from @start@ to the nearest ancestor that looks like a project root
+-- (one carrying a @cabal.project@, @stack.yaml@, or any @.cabal@ file), so the
+-- landing can read package synopses without being told where the sources live.
+-- The doc tree always sits inside its project, so this finds it.
+findProjectRoot :: FilePath -> IO (Maybe FilePath)
+findProjectRoot start = makeAbsolute start >>= go
+  where
+    go d = do
+      here <- looksLikeRoot d
+      if here
+        then pure (Just d)
+        else let up = takeDirectory d in if up == d then pure Nothing else go up
+    looksLikeRoot d = do
+      proj <- doesFileExist (d </> "cabal.project")
+      stk <- doesFileExist (d </> "stack.yaml")
+      cabal <- any ((== ".cabal") . takeExtension) <$> listDirectory d
+      pure (proj || stk || cabal)
+
+-- | Map every package @name@ to its @synopsis@, read from the @.cabal@ files
+-- found beneath @root@. Packages without a synopsis are simply absent.
+readSynopses :: FilePath -> IO (Map Text Text)
+readSynopses root = do
+  cabals <- findCabalFiles root
+  Map.fromList . catMaybes <$> traverse synopsisOf cabals
+  where
+    synopsisOf f = do
+      bytes <- BS.readFile f
+      pure $ case TE.decodeUtf8' bytes of
+        Left _ -> Nothing
+        Right txt ->
+          let fields = cabalFields txt
+           in (,) <$> lookup "name" fields <*> lookup "synopsis" fields
+
+-- | The top-level fields of a @.cabal@ file as @(lowercased-name, value)@ pairs,
+-- each value joined across its indented continuation lines. The field list is
+-- produced lazily, so looking up an early field (@name@, @synopsis@) doesn't
+-- parse the rest of the file. Indented stanza fields and comments are skipped.
+cabalFields :: Text -> [(Text, Text)]
+cabalFields = collect . T.lines
+  where
+    collect [] = []
+    collect (l : ls) = case fieldStart l of
+      Just (key, value0) ->
+        let (continued, rest) = span continues ls
+            value = T.unwords (filter (not . T.null) (map T.strip (value0 : continued)))
+         in (key, value) : collect rest
+      Nothing -> collect ls
+
+    -- A column-0 @field: value@ line yields its lowercased name and raw value.
+    fieldStart l
+      | not (indented l)
+      , (before, after) <- T.break (== ':') l
+      , Just (_colon, value0) <- T.uncons after
+      , let key = T.toLower (T.strip before)
+      , not (T.null key)
+      , T.all (\c -> isAlpha c || c == '-') key =
+          Just (key, value0)
+      | otherwise = Nothing
+
+    continues l = indented l && not (T.null (T.strip l))
+    indented = maybe False ((`elem` (" \t" :: String)) . fst) . T.uncons
+
+-- | Every @.cabal@ file at or below @dir@. We don't descend into hidden
+-- directories (@.git@, @.stack-work@, …) or cabal's build tree, none of which
+-- carry a project's own @.cabal@ files — it just avoids walking that noise.
+findCabalFiles :: FilePath -> IO [FilePath]
+findCabalFiles dir = do
+  entries <- listDirectory dir
+  fmap concat . forM entries $ \e -> do
+    let p = dir </> e
+    isDir <- doesDirectoryExist p
+    if isDir
+      then if skip e then pure [] else findCabalFiles p
+      else pure [p | takeExtension e == ".cabal"]
+  where
+    skip e = take 1 e == "." || e == "dist-newstyle"
 
 -- | Immediate subdirectories of @dir@ that look like generated Haddock packages
 -- (their @index.html@ advertises a @name-version@ package id). Each result is a

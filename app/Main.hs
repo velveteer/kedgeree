@@ -98,3 +98,13 @@ optionsParser =
                   \(repeatable). Omit to list all discovered packages alphabetically."
             )
       )
+    <*> optional
+      ( strOption
+          ( long "project-root"
+              <> metavar "DIR"
+              <> help
+                "Override the auto-detected project root used to read package \
+                \synopses for the --landing page. Normally found by walking up \
+                \from the doc tree to the nearest cabal.project / stack.yaml / .cabal."
+          )
+      )

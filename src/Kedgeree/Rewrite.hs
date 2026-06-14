@@ -19,6 +19,7 @@ module Kedgeree.Rewrite
   , rewriteMain
   , rewriteSource
   , landingPage
+  , displayName
   , marker
   ) where
 
@@ -90,7 +91,9 @@ rewriteMain prefix inj html = withSidebarClass (rewrite inj sheets injection htm
 -- so the theme, fonts and toggle behave identically. @prefix@ resolves the shared
 -- assets (always @"kedgeree-assets\/"@, since the landing sits at the tree root).
 -- The bootstrap stamp marks it as Kedgeree's, so a later run leaves it untouched.
-landingPage :: Inject -> Text -> Text -> [Text] -> Text
+-- | Each package is its directory name paired with an optional one-line
+-- synopsis (from its @.cabal@, if available).
+landingPage :: Inject -> Text -> Text -> [(Text, Maybe Text)] -> Text
 landingPage inj prefix title pkgs =
   T.concat
     [ "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n"
@@ -115,14 +118,21 @@ landingPage inj prefix title pkgs =
     ]
   where
     safeTitle = htmlEscape title
-    item name =
+    item (dir, msyn) =
       T.concat
         [ "<li><a class=\"kg-pkg\" href=\""
-        , htmlEscape name
-        , "/index.html\"><span class=\"kg-pkg-name\">"
-        , htmlEscape (displayName name)
+        , htmlEscape dir
+        , "/index.html\"><span class=\"kg-pkg-text\"><span class=\"kg-pkg-name\">"
+        , htmlEscape (displayName dir)
+        , "</span>"
+        , desc
         , "</span></a></li>"
         ]
+      where
+        desc = case msyn of
+          Just s | not (T.null (T.strip s)) ->
+            "<span class=\"kg-pkg-desc\">" <> htmlEscape (T.strip s) <> "</span>"
+          _ -> ""
 
 -- | The label shown for a package directory: the directory name with a trailing
 -- @-\<version>@ dropped, so a stack tree (which names dirs @\<pkg>-\<version>@)
