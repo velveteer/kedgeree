@@ -108,3 +108,11 @@ optionsParser =
                 \from the doc tree to the nearest cabal.project / stack.yaml / .cabal."
           )
       )
+    <*> optional
+      ( T.pack
+          <$> strOption
+            ( long "landing-description"
+                <> metavar "TEXT"
+                <> help "A one-line project description shown under the --landing page title."
+            )
+      )

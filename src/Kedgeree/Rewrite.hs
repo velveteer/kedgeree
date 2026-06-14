@@ -91,10 +91,11 @@ rewriteMain prefix inj html = withSidebarClass (rewrite inj sheets injection htm
 -- so the theme, fonts and toggle behave identically. @prefix@ resolves the shared
 -- assets (always @"kedgeree-assets\/"@, since the landing sits at the tree root).
 -- The bootstrap stamp marks it as Kedgeree's, so a later run leaves it untouched.
--- | Each package is its directory name paired with an optional one-line
--- synopsis (from its @.cabal@, if available).
-landingPage :: Inject -> Text -> Text -> [(Text, Maybe Text)] -> Text
-landingPage inj prefix title pkgs =
+-- | Render the themed landing page. @mdesc@ is an optional one-line project
+-- description shown under the title. Each package is its directory name paired
+-- with an optional synopsis (from its @.cabal@, if available).
+landingPage :: Inject -> Text -> Text -> Maybe Text -> [(Text, Maybe Text)] -> Text
+landingPage inj prefix title mdesc pkgs =
   T.concat
     [ "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n"
     , "<meta charset=\"utf-8\" />"
@@ -109,15 +110,21 @@ landingPage inj prefix title pkgs =
     , css prefix "kedgeree.css"
     , js prefix
     , "\n</head>\n<body class=\"kg-landing\">\n"
-    , "<header class=\"kg-landing-header\"><h1>"
+    , "<header class=\"kg-landing-header\"><div class=\"kg-landing-heading\"><h1>"
     , safeTitle
-    , "</h1></header>\n"
+    , "</h1>"
+    , description
+    , "</div></header>\n"
     , "<main class=\"kg-landing-main\"><ul class=\"kg-pkg-list\">"
     , foldMap item pkgs
     , "</ul></main>\n</body>\n</html>\n"
     ]
   where
     safeTitle = htmlEscape title
+    description = case mdesc of
+      Just d | not (T.null (T.strip d)) ->
+        "<p class=\"kg-landing-desc\">" <> htmlEscape (T.strip d) <> "</p>"
+      _ -> ""
     item (dir, msyn) =
       T.concat
         [ "<li><a class=\"kg-pkg\" href=\""

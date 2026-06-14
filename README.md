@@ -96,6 +96,7 @@ kedgeree [OPTIONS] DOC_HTML_DIR
   --show-module-info                Show the module-info badge (Safe Haskell etc.), off by default
   --force                           Re-theme pages already themed at this version
   --landing TITLE                   Generate a landing page (index.html) for a multi-package tree
+  --landing-description TEXT        One-line project description shown under the landing title
   --package NAME                    Curate and order the --landing list (repeatable)
   --project-root DIR                Override the auto-detected project root for landing synopses
 ```
@@ -127,6 +128,14 @@ walking up from the doc tree to the nearest `cabal.project`, `stack.yaml`, or
 `.cabal`, so no flag is needed when the docs live inside the project. Pass
 `--project-root DIR` only to point it somewhere else. Packages with no synopsis
 just show the name.
+
+Add `--landing-description "..."` for a one-line description of the project
+itself, shown under the title:
+
+```sh
+kedgeree ./site --landing "My project" \
+  --landing-description "A short tagline for the whole project."
+```
 
 Kedgeree bundles **IBM Plex Sans** (UI/prose) and **JetBrains Mono** (code)
 (~120 KB total), so pages render fully offline with a consistent, modern look

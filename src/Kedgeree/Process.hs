@@ -74,6 +74,8 @@ data Options = Options
   -- empty means auto-discover every package directory, alphabetically
   , optProjectRoot :: Maybe FilePath
   -- ^ override the auto-detected project root used to read package synopses
+  , optLandingDescription :: Maybe Text
+  -- ^ optional one-line project description shown under the landing page title
   }
 
 -- | Apply the theme to @optDir@ and everything beneath it.
@@ -140,18 +142,18 @@ run opts = do
       -- Opt-in multi-package landing page at the tree root.
       case optLanding opts of
         Nothing -> pure ()
-        Just title -> writeLanding inj dir title (optPackages opts) (optProjectRoot opts)
+        Just title -> writeLanding opts inj title
 
--- | Write a themed landing page to @dir\/index.html@ listing the package
--- directories beneath @dir@. With no @wanted@ names it lists every discovered
+-- | Write a themed landing page to @optDir\/index.html@ listing the package
+-- directories beneath it. With no @--package@ names it lists every discovered
 -- package alphabetically; otherwise it keeps exactly those, in the given order,
 -- warning on @stderr@ about any that do not exist.
-writeLanding :: Inject -> FilePath -> Text -> [Text] -> Maybe FilePath -> IO ()
-writeLanding inj dir title wanted mroot = do
+writeLanding :: Options -> Inject -> Text -> IO ()
+writeLanding opts inj title = do
   found <- Set.fromList <$> discoverPackages dir
-  selected <- case wanted of
+  selected <- case optPackages opts of
     [] -> pure (Set.toAscList found)
-    _ -> do
+    wanted -> do
       traverse_ warnMissing (filter (`Set.notMember` found) wanted)
       pure (filter (`Set.member` found) wanted)
   case selected of
@@ -161,18 +163,20 @@ writeLanding inj dir title wanted mroot = do
       -- version suffix dropped) against the project's .cabal synopses. The
       -- project root is auto-detected by walking up from the doc tree, unless an
       -- explicit --project-root overrides it.
-      root <- maybe (findProjectRoot dir) (pure . Just) mroot
+      root <- maybe (findProjectRoot dir) (pure . Just) (optProjectRoot opts)
       synopses <- maybe (pure Map.empty) readSynopses root
       let dest = dir </> "index.html"
           prefix = T.pack assetDirName <> "/"
           entries = map (\p -> (p, Map.lookup (displayName p) synopses)) pkgs
-      BS.writeFile dest (TE.encodeUtf8 (landingPage inj prefix title entries))
+          page = landingPage inj prefix title (optLandingDescription opts) entries
+      BS.writeFile dest (TE.encodeUtf8 page)
       putStrLn $
         "kedgeree: wrote landing page ("
           <> show (length pkgs)
           <> " package(s)) to "
           <> dest
   where
+    dir = optDir opts
     warnMissing pkg =
       hPutStrLn stderr $ "kedgeree: --package not found under " <> dir <> ": " <> T.unpack pkg
 

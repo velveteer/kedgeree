@@ -624,9 +624,12 @@ a.link:hover, a.selflink:hover { color: var(--kg-accent); text-decoration: none;
   border: none;
   padding: 0;
   font-family: var(--kg-mono);
-  font-weight: 600;
-  /* <dfn> is italic by default, which is hard to read in a mono signature. */
+  /* The field type reads lighter than the field name: normal weight and muted,
+     so the bold, full-colour name (the a.def, styled separately) leads while the
+     type recedes. <dfn> is italic by default, which is hard to read in mono. */
+  font-weight: 400;
   font-style: normal;
+  color: var(--kg-fg-muted);
   white-space: pre-wrap;
   overflow-x: auto;
 }
@@ -1329,13 +1332,14 @@ body.kg-landing {
 }
 .kg-landing-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 2rem;
   padding-bottom: 1.25rem;
   border-bottom: 1px solid var(--kg-border);
 }
+.kg-landing-heading { min-width: 0; }
 .kg-landing-header h1 {
   margin: 0;
   font-size: 2rem;
@@ -1343,6 +1347,16 @@ body.kg-landing {
   letter-spacing: -0.015em;
   color: var(--kg-fg);
 }
+/* Optional one-line project description, under the title. */
+.kg-landing-desc {
+  margin: 0.45rem 0 0;
+  max-width: 46rem;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--kg-fg-muted);
+}
+/* Keep the theme toggle level with the title rather than the top of the line. */
+.kg-landing-header .kg-actions { margin-top: 0.35rem; }
 .kg-pkg-list {
   list-style: none;
   margin: 0;
