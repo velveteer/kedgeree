@@ -109,6 +109,21 @@
     var brand = el("a", { class: "kg-brand", href: "index.html" },
       LAMBDA + "<span>" + esc(pkgName() || moduleName() || "Documentation") + "</span>");
 
+    // Haddock's package caption reads "pkgid: synopsis", and the brand already
+    // shows the pkgid — so drop that prefix and keep just the synopsis. If
+    // nothing remains (no synopsis), mark it empty so the CSS hides it. The
+    // brand carries the package identity, the caption only its tagline.
+    var pkgCap = $(".caption", header);
+    if (pkgCap) {
+      var pkg = pkgName();
+      var capText = (pkgCap.textContent || "").trim();
+      if (pkg && capText.indexOf(pkg) === 0) {
+        var rest = capText.slice(pkg.length).replace(/^\s*:\s*/, "").trim();
+        if (rest) pkgCap.textContent = rest;
+        else pkgCap.classList.add("empty");
+      }
+    }
+
     var search = el("button", { type: "button", class: "kg-search", title: "Search (press / )" },
       ICON.search +
       '<span class="kg-search-label">Search…</span>' +

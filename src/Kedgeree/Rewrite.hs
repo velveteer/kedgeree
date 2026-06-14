@@ -74,6 +74,7 @@ rewriteMain prefix inj html = withSidebarClass (rewrite inj sheets injection htm
       boot inj
         <> noscriptFix
         <> favicon prefix
+        <> preloadFonts inj prefix
         <> css prefix "kedgeree-tokens.css"
         <> overrides inj
         <> css prefix "kedgeree.css"
@@ -105,6 +106,7 @@ landingPage inj prefix title mdesc pkgs =
     , "</title>"
     , boot inj
     , favicon prefix
+    , preloadFonts inj prefix
     , css prefix "kedgeree-tokens.css"
     , overrides inj
     , css prefix "kedgeree.css"
@@ -176,6 +178,7 @@ rewriteSource prefix inj =
         <> "=\"charset\" />"
         <> boot inj
         <> favicon prefix
+        <> preloadFonts inj prefix
         <> css prefix "kedgeree-tokens.css"
         <> overrides inj
         <> css prefix "kedgeree-source.css"
@@ -267,6 +270,29 @@ favicon prefix =
     , marker
     , "=\"icon\" />"
     ]
+
+-- | Preload the bundled font faces that dominate the first paint — body text
+-- (Plex Sans 400), the page title (Plex Sans 700) and code (JetBrains Mono 400)
+-- — so they are in hand before text renders. Without this the faces are fetched
+-- lazily, so the fallback paints first and @font-display: swap@ then swaps each
+-- in, a visible flash. A family the visitor has overridden is skipped: its
+-- bundled faces are then unused and must not be fetched.
+preloadFonts :: Inject -> Text -> Text
+preloadFonts inj prefix = T.concat (map link faces)
+  where
+    faces =
+      [f | injFont inj == Nothing, f <- ["ibm-plex-sans-400", "ibm-plex-sans-700"]]
+        ++ [f | injMono inj == Nothing, f <- ["jetbrains-mono-400"]]
+    link f =
+      T.concat
+        [ "<link rel=\"preload\" as=\"font\" type=\"font/woff2\" crossorigin href=\""
+        , prefix
+        , "fonts/"
+        , f
+        , ".woff2\" "
+        , marker
+        , "=\"preload\" />"
+        ]
 
 -- | Optional accent / font overrides, emitted as a tiny inline stylesheet.
 -- Values are sanitised so a CLI argument cannot break out of the declaration.

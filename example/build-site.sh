@@ -52,7 +52,12 @@ for pkg in "${hackage_pkgs[@]}"; do
   [ -n "$pdir" ] || { echo "kedgeree: could not fetch $pkg" >&2; exit 1; }
 
   echo ">> Building Haddocks for $pkg (first run can take a few minutes)..."
-  ( cd "$pdir" && cabal haddock --haddock-hyperlink-source --haddock-quickjump )
+  # Point dependency hyperlinks (base, containers, ...) at Hackage rather than
+  # the local store paths cabal would otherwise emit, which 404 once deployed.
+  # This is the per-package equivalent of `cabal haddock-project --hackage`.
+  ( cd "$pdir" && cabal haddock \
+      --haddock-hyperlink-source --haddock-quickjump \
+      --haddock-html-location='https://hackage.haskell.org/package/$pkg-$version/docs' )
 
   doc="$(find "$pdir/dist-newstyle" -type d -path "*/doc/html/$pkg" | head -1)"
   [ -n "$doc" ] || { echo "kedgeree: no Haddock output for $pkg" >&2; exit 1; }
