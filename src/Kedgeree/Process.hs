@@ -18,7 +18,10 @@ import Control.Concurrent.QSem (newQSem, signalQSem, waitQSem)
 import Control.Exception (bracket_)
 import Control.Monad (forM, join, when)
 import qualified Data.ByteString as BS
+import Data.Foldable (traverse_)
 import Data.List (find, nub)
+import Data.Maybe (catMaybes)
+import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
@@ -30,7 +33,8 @@ import System.Directory
   , pathIsSymbolicLink
   )
 import System.FilePath
-  ( makeRelative
+  ( equalFilePath
+  , makeRelative
   , splitDirectories
   , takeDirectory
   , takeExtension
@@ -39,7 +43,7 @@ import System.FilePath
 import System.IO (hPutStrLn, stderr)
 
 import Kedgeree.Assets (assets)
-import Kedgeree.Rewrite (Inject (..), marker, rewriteMain, rewriteSource)
+import Kedgeree.Rewrite (Inject (..), landingPage, marker, rewriteMain, rewriteSource)
 
 -- | Parsed command-line options.
 data Options = Options
@@ -59,6 +63,11 @@ data Options = Options
   -- ^ hide Haddock's module-info badge (Safe Haskell, Language, Extensions)
   , optForce :: Bool
   -- ^ re-theme pages already carrying this build's stamp
+  , optLanding :: Maybe Text
+  -- ^ when set, generate a package landing page (with this title) at the root
+  , optPackages :: [Text]
+  -- ^ curate which package subdirectories the landing lists, and their order;
+  -- empty means auto-discover every package directory, alphabetically
   }
 
 -- | Apply the theme to @optDir@ and everything beneath it.
@@ -78,7 +87,12 @@ run opts = do
               (optHideModuleInfo opts)
               (optForce opts)
 
-      pages <- findHtml dir
+      pages0 <- findHtml dir
+      -- When asked for a landing page we own the root index.html and replace it
+      -- wholesale below, so leave it out of the in-place theming pass.
+      let pages = case optLanding opts of
+            Just _ -> filter (not . equalFilePath (dir </> "index.html")) pages0
+            Nothing -> pages0
 
       -- Files are independent, so process them on a bounded worker pool.
       caps <- getNumCapabilities
@@ -116,6 +130,55 @@ run opts = do
               <> (if srcs > 0 then ", " <> show srcs <> " source page(s)" else "")
               <> " in "
               <> dir
+
+      -- Opt-in multi-package landing page at the tree root.
+      case optLanding opts of
+        Nothing -> pure ()
+        Just title -> writeLanding inj dir title (optPackages opts)
+
+-- | Write a themed landing page to @dir\/index.html@ listing the package
+-- directories beneath @dir@. With no @wanted@ names it lists every discovered
+-- package alphabetically; otherwise it keeps exactly those, in the given order,
+-- warning on @stderr@ about any that do not exist.
+writeLanding :: Inject -> FilePath -> Text -> [Text] -> IO ()
+writeLanding inj dir title wanted = do
+  found <- Set.fromList <$> discoverPackages dir
+  selected <- case wanted of
+    [] -> pure (Set.toAscList found)
+    _ -> do
+      traverse_ warnMissing (filter (`Set.notMember` found) wanted)
+      pure (filter (`Set.member` found) wanted)
+  case selected of
+    [] -> hPutStrLn stderr $ "kedgeree: --landing: no packages found under " <> dir
+    pkgs -> do
+      let dest = dir </> "index.html"
+          prefix = T.pack assetDirName <> "/"
+      BS.writeFile dest (TE.encodeUtf8 (landingPage inj prefix title pkgs))
+      putStrLn $
+        "kedgeree: wrote landing page ("
+          <> show (length pkgs)
+          <> " package(s)) to "
+          <> dest
+  where
+    warnMissing pkg =
+      hPutStrLn stderr $ "kedgeree: --package not found under " <> dir <> ": " <> T.unpack pkg
+
+-- | Immediate subdirectories of @dir@ that look like generated Haddock packages
+-- (their @index.html@ advertises a @name-version@ package id). Each result is a
+-- directory name, which doubles as the landing link target and curation key.
+discoverPackages :: FilePath -> IO [Text]
+discoverPackages dir = do
+  entries <- listDirectory dir
+  catMaybes <$> traverse probe entries
+  where
+    probe e
+      | e == assetDirName = pure Nothing
+      | otherwise = do
+          let p = dir </> e
+          isDir <- doesDirectoryExist p
+          if isDir
+            then (T.pack e <$) <$> packageFor p
+            else pure Nothing
 
 -- | Run @f@ over every item concurrently, but with at most @n@ actions in
 -- flight at once (bounding open file handles and memory). Order of results

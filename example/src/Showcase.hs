@@ -83,6 +83,7 @@ module Showcase
   , Container (..)
   , Convert (..)
   , Describe (..)
+  , Tabulate (..)
 
     -- * GADTs & existentials
   , Expr (..)
@@ -293,6 +294,21 @@ instance (Describe a, Describe b, Describe c) => Describe (a, b, c) where
 
 instance Describe Point where
   describe (Point x y) = "(" ++ show x ++ ", " ++ show y ++ ")"
+
+-- | A class with a deliberately long superclass context, to stress how a wide
+-- constraint tuple renders in the class header (and how it wraps on a narrow
+-- screen).
+--
+-- @since 0.5.0
+class
+  (Eq a, Ord a, Show a, Read a, Enum a, Bounded a, Num a, Real a, Integral a) =>
+  Tabulate a
+  where
+  -- | Render the value as a fixed-width table cell.
+  tabulate :: a -> String
+  tabulate = show
+
+instance Tabulate Int
 
 -- | A simple, type-indexed expression GADT.
 --

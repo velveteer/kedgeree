@@ -78,3 +78,23 @@ optionsParser =
       ( long "force"
           <> help "Re-theme pages already themed at this version (e.g. after changing options)."
       )
+    <*> optional
+      ( T.pack
+          <$> strOption
+            ( long "landing"
+                <> metavar "TITLE"
+                <> help
+                  "Generate a themed landing page (index.html) at the root listing every \
+                  \package subdirectory, headed by TITLE. For multi-package trees."
+            )
+      )
+    <*> many
+      ( T.pack
+          <$> strOption
+            ( long "package"
+                <> metavar "NAME"
+                <> help
+                  "Restrict and order the --landing list to this package directory \
+                  \(repeatable). Omit to list all discovered packages alphabetically."
+            )
+      )

@@ -18,6 +18,7 @@ module Kedgeree.Rewrite
   ( Inject (..)
   , rewriteMain
   , rewriteSource
+  , landingPage
   , marker
   ) where
 
@@ -82,6 +83,67 @@ rewriteMain prefix inj html = withSidebarClass (rewrite inj sheets injection htm
     withSidebarClass h
       | "id=\"interface\"" `T.isInfixOf` h = addBodyClass "kg-has-sidebar" h
       | otherwise = h
+
+-- | Build a standalone, themed landing page for a multi-package tree: a header
+-- carrying @title@ and a grid of links, one per package, to @\<name>/index.html@.
+-- It reuses the same bootstrap, stylesheets and script as a themed Haddock page,
+-- so the theme, fonts and toggle behave identically. @prefix@ resolves the shared
+-- assets (always @"kedgeree-assets\/"@, since the landing sits at the tree root).
+-- The bootstrap stamp marks it as Kedgeree's, so a later run leaves it untouched.
+landingPage :: Inject -> Text -> Text -> [Text] -> Text
+landingPage inj prefix title pkgs =
+  T.concat
+    [ "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n"
+    , "<meta charset=\"utf-8\" />"
+    , "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />"
+    , "<title>"
+    , safeTitle
+    , "</title>"
+    , boot inj
+    , favicon prefix
+    , css prefix "kedgeree-tokens.css"
+    , overrides inj
+    , css prefix "kedgeree.css"
+    , js prefix
+    , "\n</head>\n<body class=\"kg-landing\">\n"
+    , "<header class=\"kg-landing-header\"><h1>"
+    , safeTitle
+    , "</h1></header>\n"
+    , "<main class=\"kg-landing-main\"><ul class=\"kg-pkg-list\">"
+    , foldMap item pkgs
+    , "</ul></main>\n</body>\n</html>\n"
+    ]
+  where
+    safeTitle = htmlEscape title
+    item name =
+      T.concat
+        [ "<li><a class=\"kg-pkg\" href=\""
+        , htmlEscape name
+        , "/index.html\"><span class=\"kg-pkg-name\">"
+        , htmlEscape (displayName name)
+        , "</span></a></li>"
+        ]
+
+-- | The label shown for a package directory: the directory name with a trailing
+-- @-\<version>@ dropped, so a stack tree (which names dirs @\<pkg>-\<version>@)
+-- reads as cleanly as a @haddock-project@ tree (which uses just @\<pkg>@). The
+-- link still targets the real directory name.
+displayName :: Text -> Text
+displayName dir = case T.breakOnEnd "-" dir of
+  (pkg, ver)
+    | not (T.null pkg)
+    , not (T.null ver)
+    , T.all (`elem` ("0123456789." :: String)) ver ->
+        T.dropEnd 1 pkg
+  _ -> dir
+
+-- | Minimal HTML-text escaping for values placed in element content / hrefs.
+htmlEscape :: Text -> Text
+htmlEscape =
+  T.replace "\"" "&quot;"
+    . T.replace ">" "&gt;"
+    . T.replace "<" "&lt;"
+    . T.replace "&" "&amp;"
 
 -- | Rewrite a hyperlinked-source page. These live under @src/@. @prefix@ points
 -- back up to the shared asset directory (typically @"..\/kedgeree-assets\/"@).

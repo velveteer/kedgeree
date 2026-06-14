@@ -147,6 +147,18 @@
     return (document.title || "").trim();
   }
 
+  // What the sidebar heading says, derived from the page itself so new page
+  // kinds need no special-casing. A module page uses its module name. Every
+  // other Haddock page titles itself "<package> (Qualifier)" — so the
+  // alphabetical index reads "Index" — and the package contents page (no such
+  // qualifier) falls back to "Contents".
+  function sidebarHeading() {
+    var cap = $("#module-header .caption");
+    if (cap && cap.textContent.trim()) return cap.textContent.trim();
+    var qualifier = /\(([^)]+)\)\s*$/.exec(document.title || "");
+    return qualifier ? qualifier[1].trim() : "Contents";
+  }
+
   // The package name, injected as a meta by the kedgeree post-processor.
   function pkgName() {
     var m = document.querySelector('meta[name="kg-package"]');
@@ -160,7 +172,15 @@
     var contents = $("#contents-list");
     var defs = $$("#interface .top > .src a.def[id], #interface .top > .src a.def[name]");
     var pageMenu = $("#page-menu");
-    var pageLinks = pageMenu ? $$("a[href]", pageMenu) : [];
+    // Mirror only real cross-page links (Source / Contents / Index). Haddock's
+    // bundle injects JS-only controls into #page-menu at runtime — Quick Jump and
+    // the "Instances" expand/collapse menu — which carry fragment (#) hrefs, do
+    // nothing when cloned, and appear or not depending on whether the bundle has
+    // run yet. Excluding fragment hrefs drops them and kills that race.
+    var pageLinks = (pageMenu ? $$("a[href]", pageMenu) : []).filter(function (a) {
+      var href = a.getAttribute("href") || "";
+      return href && href.charAt(0) !== "#";
+    });
     // Pages with real navigation get a full sidebar — the rest (contents, index)
     // still get a minimal drawer so the mobile hamburger works.
     var rich = !!contents || defs.length > 0;
@@ -174,7 +194,7 @@
     // elsewhere it falls back to a link to the package index.
     var header = $("#module-header");
     var home = el("a", { class: "kg-sb-home", href: header ? "#module-header" : "index.html" },
-      LAMBDA + " <strong>" + esc(moduleName() || "Contents") + "</strong>");
+      LAMBDA + " <strong>" + esc(sidebarHeading()) + "</strong>");
     nav.appendChild(home);
 
     var spyTargets = [];
@@ -517,38 +537,47 @@
     });
   }
 
-  // Re-flow an over-long type signature into the canonical multi-line shape:
-  // break before each top-level :: => and -> (never inside parens or brackets),
-  // continuation lines indented two columns so the operators line up. Applied
-  // only when the single-line form actually overflows its box, so short sigs are
-  // left as they are. Runs before enhanceSourceLinks, so the inserted breaks end
-  // up inside the pre-wrap .kg-sig.
-  function formatLongSignatures() {
+  // Re-flow over-long type signatures into the canonical multi-line shape: break
+  // before each top-level :: => and -> (never inside parens or brackets), each
+  // continuation indented two columns so the operators line up. Done only when
+  // the single-line form doesn't fit, so short sigs are left alone — and it is
+  // width-aware and re-runnable, so a sig that fits on a wide screen but not a
+  // narrow/mobile one gets broken (and un-broken again if the screen widens).
+  // Runs after enhanceSourceLinks: we measure the .kg-sig, whose width already
+  // excludes the Source/# links, so the fit test is accurate.
+  function reflowSignatures() {
     $$("#interface .src").forEach(function (src) {
-      if (src.dataset.kgWrapped) return;
-      if (!sigOverflows(src)) return;
-      if (breakTypeSig(src)) {
-        src.dataset.kgWrapped = "1";
+      var sig = $(".kg-sig", src) || src; // the signature, minus the source links
+      collapseBreaks(sig); // start from the single-line form every time
+      src.classList.remove("kg-multiline");
+      if (sigNeedsBreak(sig) && breakTypeSig(sig)) {
         src.classList.add("kg-multiline");
       }
     });
   }
 
-  function sigOverflows(src) {
-    var avail = src.clientWidth;
-    if (avail > 0) {
-      // Hide trailing Source / # links so they don't inflate the measurement.
-      var links = $$("a.link, a.selflink", src);
-      links.forEach(function (a) { a.style.display = "none"; });
-      var prev = src.style.whiteSpace;
-      src.style.whiteSpace = "nowrap";
-      var over = src.scrollWidth - avail > 8;
-      src.style.whiteSpace = prev;
-      links.forEach(function (a) { a.style.display = ""; });
-      return over;
+  // True when the single-line signature is wider than the space it has.
+  function sigNeedsBreak(sig) {
+    var avail = sig.clientWidth;
+    if (!avail) {
+      // Unmeasurable (inline, or inside a collapsed details): length heuristic.
+      return sig.textContent.replace(/\s+/g, " ").trim().length > 64;
     }
-    // Unmeasurable (inline, or inside a collapsed details): length heuristic.
-    return src.textContent.replace(/\s+/g, " ").trim().length > 64;
+    var prev = sig.style.whiteSpace;
+    sig.style.whiteSpace = "nowrap";
+    var over = sig.scrollWidth - avail > 6;
+    sig.style.whiteSpace = prev;
+    return over;
+  }
+
+  // Undo a previous break pass: collapse each inserted "\n  " back to one space.
+  function collapseBreaks(root) {
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    for (var n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (n.textContent.indexOf("\n") >= 0) {
+        n.textContent = n.textContent.replace(/\n[ \t]*/g, " ");
+      }
+    }
   }
 
   function breakTypeSig(root) {
@@ -701,19 +730,40 @@
     footer.appendChild(span);
   }
 
+  // Multi-package landing page (generated by kedgeree --landing): give it the
+  // same theme toggle as a doc page. The Haddock-specific passes above all no-op
+  // on it (it has no #package-header, #interface, #footer, source spans…).
+  function enhanceLanding() {
+    if (!document.body.classList.contains("kg-landing")) return;
+    var header = $(".kg-landing-header");
+    if (!header) return;
+    var actions = el("div", { class: "kg-actions" });
+    actions.appendChild(themeButton());
+    header.appendChild(actions);
+  }
+
   /* ====================================================================== */
   /* Boot                                                                    */
   /* ====================================================================== */
   function init() {
     applyTheme(currentTheme());
     enhanceHeader();
+    enhanceLanding();
     buildSidebar();
     inlineArgSignatures();
-    formatLongSignatures();
     enlargeInstanceToggles();
     enhanceSourceLinks();
+    reflowSignatures();
     enhanceSource();
     enhanceFooter();
+
+    // Re-flow signatures when the viewport changes (resize / rotate), so the
+    // multi-line breaks track whether the single-line form still fits.
+    var reflowTimer;
+    window.addEventListener("resize", function () {
+      clearTimeout(reflowTimer);
+      reflowTimer = setTimeout(reflowSignatures, 150);
+    });
 
     // Dismiss the mobile drawer when tapping outside it.
     document.addEventListener("click", function (e) {

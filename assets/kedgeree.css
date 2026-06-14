@@ -1191,17 +1191,23 @@ pre::-webkit-scrollbar-thumb:hover {
 
 /* JS-built header actions + sidebar home. */
 .kg-actions { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
-.kg-sb-home {
+/* Scoped under #kg-sidebar so it outranks `#kg-sidebar a` (an id selector) —
+   otherwise the flush padding-left below silently loses to it, and the λ pushes
+   the heading text in past the nav options. */
+#kg-sidebar .kg-sb-home {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
-  /* The top-level entry: drop the list-link left padding so it sits flush at
-     the content edge (one level out from the sections), but keep the 2px gutter
-     inherited from #kg-sidebar a so it still shows the scroll-spy active bar. */
-  padding-left: 0;
+  /* Keep the heading content flush at the rail (so off-module headings sit one
+     level out, not indented), but let the active/hover highlight reach a little
+     further left via the negative margin — absorbed by the sidebar's own
+     left padding — so the λ has breathing room from the highlight's edge rather
+     than touching it. The λ sits in a fixed-width box so the heading text lands
+     at a predictable spot, left of the nav options, whatever the glyph width. */
+  margin: 0 0 0.5rem -0.4rem;
+  padding-left: 0.4rem;
   color: var(--kg-fg);
 }
+#kg-sidebar .kg-sb-home .kg-lambda { flex: none; width: 0.9rem; }
 
 /* Search overlay. */
 .kg-search-overlay .kg-help-card { width: min(40rem, 94vw); padding: 0; overflow: hidden; }
@@ -1311,3 +1317,70 @@ pre::-webkit-scrollbar-thumb:hover {
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
 }
+
+/* ==========================================================================
+   Multi-package landing page (kedgeree --landing)
+   ========================================================================== */
+body.kg-landing {
+  display: block;
+  max-width: 56rem;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 5rem;
+}
+.kg-landing-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--kg-border);
+}
+.kg-landing-header h1 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: var(--kg-fg);
+}
+.kg-pkg-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.75rem;
+}
+.kg-pkg {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 1.1rem;
+  border: 1px solid var(--kg-border);
+  border-radius: var(--kg-radius);
+  background: var(--kg-bg-raised);
+  color: var(--kg-fg);
+  text-decoration: none;
+  font-family: var(--kg-mono);
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+.kg-pkg:hover {
+  border-color: var(--kg-accent);
+  background: var(--kg-bg-sunken);
+  color: var(--kg-accent-strong);
+}
+.kg-pkg-name { overflow: hidden; text-overflow: ellipsis; }
+/* The same chevron icon as every toggle, here as a quiet "go" affordance. */
+.kg-pkg::after {
+  content: "";
+  flex: none;
+  margin-left: auto;
+  width: 0.7em;
+  height: 0.9em;
+  background-color: var(--kg-fg-faint);
+  -webkit-mask: var(--kg-chevron) center / contain no-repeat;
+  mask: var(--kg-chevron) center / contain no-repeat;
+}
+.kg-pkg:hover::after { background-color: var(--kg-accent); }

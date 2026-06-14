@@ -30,22 +30,44 @@ Kedgeree is a single self-contained binary, with the theme assets embedded.
 
 ## Usage
 
-### A single package
+Generate Haddock HTML the way you normally do, then point `kedgeree` at the
+output directory. It rewrites every page in place and drops the shared theme
+assets alongside them.
+
+### Cabal, a single package
 
 ```sh
 cabal haddock --haddock-hyperlink-source --haddock-quickjump
-# point kedgeree at the generated html directory, e.g.
+# cabal prints "Documentation created: <dir>". Theme that directory:
 kedgeree dist-newstyle/build/*/ghc-*/<pkg>-*/doc/html/<pkg>
 ```
 
-### A whole project (`haddock-project`)
+### Cabal, a whole project
+
+`cabal haddock-project` builds the multi-package layout for you, one
+subdirectory per package plus an index, with no manual assembly.
 
 ```sh
-cabal haddock-project --local
-kedgeree ./haddocks
+cabal haddock-project --hackage --haddock-options=--quickjump
+kedgeree ./haddocks --landing "My project"
 ```
 
-### Plain Haddock (no cabal)
+`--hackage` documents your packages and links their dependencies to Hackage.
+`--landing` writes a themed front page listing the packages (see below). Leave
+it off and kedgeree simply themes the index `haddock-project` already wrote.
+
+### Stack
+
+```sh
+stack haddock --haddock-arguments "--quickjump"
+kedgeree "$(stack path --local-doc-root)" --landing "My project"
+```
+
+`stack haddock` hyperlinks source by default and writes one subdirectory per
+package under the local doc root. Add `--haddock-deps` to document dependencies
+too, then use `--package` to keep the landing to your own packages.
+
+### Plain Haddock
 
 ```sh
 haddock --html --hyperlinked-source --quickjump --odir=out *.hs
@@ -72,6 +94,29 @@ kedgeree [OPTIONS] DOC_HTML_DIR
   --no-source                       Don't theme the hyperlinked-source pages
   --show-module-info                Show the module-info badge (Safe Haskell etc.), off by default
   --force                           Re-theme pages already themed at this version
+  --landing TITLE                   Generate a landing page (index.html) for a multi-package tree
+  --package NAME                    Curate and order the --landing list (repeatable)
+```
+
+### A multi-package landing page
+
+For a tree with one subdirectory per package (a `haddock-project` build, or
+docs assembled by hand), `--landing` writes a themed `index.html` at the root
+that lists every package and links to its docs:
+
+```sh
+kedgeree ./site --landing "My project"
+```
+
+By default it lists every package directory it finds, alphabetically. Pass
+`--package` (repeatable) to choose exactly which packages appear, in the order
+you give, so internal packages like test or bench suites can be left off:
+
+```sh
+kedgeree ./site --landing "My project" \
+  --package project-core \
+  --package project-pkg \
+  --package project-acme
 ```
 
 Kedgeree bundles **IBM Plex Sans** (UI/prose) and **JetBrains Mono** (code)
