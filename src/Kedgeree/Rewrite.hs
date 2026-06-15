@@ -224,6 +224,11 @@ boot inj =
     , "var d=t==='dark'||(t==='auto'&&m);"
     , "var r=document.documentElement;r.setAttribute('data-theme',t);"
     , "r.setAttribute('data-resolved',d?'dark':'light');"
+    , -- Mark JS as live before first paint so the "hide-when-js-enabled" toggle
+      -- labels (the module tree's "Submodules", the synopsis/instance summaries)
+      -- are hidden from the start, rather than painting and then vanishing in a
+      -- reflow once Haddock's bundle adds body.js-enabled after load.
+      "r.setAttribute('data-js','1');"
     , "}catch(e){}})();</script>"
     ]
   where
@@ -247,8 +252,9 @@ noscriptFix =
     , "body.kg-has-sidebar{grid-template-columns:minmax(0,1fr);"
     , "grid-template-areas:\"header\" \"main\" \"footer\";}"
     , "body.kg-has-sidebar #table-of-contents{display:block!important;}"
-    , -- kedgeree.js normally lifts the Source/# links onto the signature's right —
-      -- with no JS the float fallback drops them onto a stray line, so render them
+    , -- With no JS, kedgeree.js never builds the per-signature hover row, so the
+      -- selflink (the '#', shown only on row-hover) stays invisible and the links
+      -- keep the float fallback's right float. Force them visible and lay them out
       -- inline at the end of the signature instead.
       ".src>a.link,.src>a.selflink"
     , "{float:none!important;opacity:1!important;margin-left:0.6rem;}"

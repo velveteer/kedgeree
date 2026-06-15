@@ -13,8 +13,12 @@
 * { margin: 0; padding: 0; }
 *, *::before, *::after { box-sizing: border-box; }
 
-/* Haddock's bundle uses these to toggle instances/synopsis. */
-body.js-enabled .hide-when-js-enabled { display: none; }
+/* Haddock's bundle uses these to toggle instances/synopsis. The bundle adds
+   body.js-enabled only after load, so we also key off data-js, which boot stamps
+   on <html> before first paint — otherwise these labels paint and then vanish in
+   a reflow (most visible as the contents page's module tree settling). */
+body.js-enabled .hide-when-js-enabled,
+html[data-js] .hide-when-js-enabled { display: none; }
 .hide { display: none; }
 .show { display: inherit; }
 .hidden { display: none !important; }
@@ -44,11 +48,34 @@ body.js-enabled .hide-when-js-enabled { display: none; }
   mask-size: 0.66em auto;
 }
 .noexpander::before { content: ""; display: inline-block; width: 0.98em; }
+/* In the JS path (boot stamps data-js on <html> before first paint) reserve the
+   chevron's box on the bare toggle control, so a row does not shift sideways
+   when Haddock's bundle later adds .collapser / .expander and the chevron grows
+   in. Dimensions only, so .collapser / .expander still own the chevron itself. */
+html[data-js] .details-toggle-control::before {
+  content: "";
+  display: inline-block;
+  width: 0.7em;
+  height: 1em;
+  margin-right: 0.28em;
+  vertical-align: -0.18em;
+}
+/* The module tree is always open once JS runs, so draw its open chevron up front.
+   The contents page is then fully static from the first paint, with no chevron
+   popping in per row. Same mask as .collapser::before, so it matches exactly. */
+html[data-js] #module-list .details-toggle-control::before {
+  background-color: var(--kg-fg-faint);
+  -webkit-mask: var(--kg-chevron-open) left center / 0.66em auto no-repeat;
+  mask: var(--kg-chevron-open) left center / 0.66em auto no-repeat;
+}
 /* Uniform hover for every toggle (module tree, instances, instance/Examples
    section headers, synopsis): accent the chevron, and brighten heading-style
    toggles. */
 body.js-enabled .details-toggle-control:hover::before,
 body.js-enabled #synopsis summary:hover::before { background-color: var(--kg-accent); }
+/* The module-tree chevron is painted by an id-specific rule above, so its hover
+   accent has to match that specificity to win. */
+body.js-enabled #module-list .details-toggle-control:hover::before { background-color: var(--kg-accent); }
 body.js-enabled h4.details-toggle-control { transition: color 0.12s ease; }
 body.js-enabled h4.details-toggle-control:hover { color: var(--kg-fg); }
 
