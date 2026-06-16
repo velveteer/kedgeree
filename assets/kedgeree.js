@@ -1,12 +1,6 @@
-/* Kedgeree — a modern theme for Haddock.
- *
- * Vanilla, dependency-free, and defensive: every feature degrades gracefully
- * if the page Haddock produced doesn't have what it expects. Visual theming is
- * all CSS. This file only does what CSS can't:
- *   - the light/dark/auto toggle (+ persistence),
- *   - building a sticky sidebar from the existing DOM, with scroll-spy,
- *   - a keyboard-driven search overlay over Haddock's doc-index.json,
- *   - line numbers / line highlighting on hyperlinked-source pages.
+/* Kedgeree — a modern theme for Haddock. Vanilla, dependency-free, defensive.
+ * Visual theming is CSS; this file does what CSS can't: the theme toggle, the
+ * sticky sidebar + scroll-spy, the search overlay, and source-page niceties.
  */
 (function () {
   "use strict";
@@ -41,9 +35,7 @@
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>',
   };
 
-  /* ====================================================================== */
-  /* Theme toggle                                                            */
-  /* ====================================================================== */
+  /* Theme toggle */
   var mql = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)");
 
   function currentTheme() {
@@ -88,9 +80,7 @@
     return btn;
   }
 
-  /* ====================================================================== */
-  /* Header: brand, search trigger, menu button, theme toggle               */
-  /* ====================================================================== */
+  /* Header: brand, search trigger, menu button, theme toggle */
   function enhanceHeader() {
     var header = $("#package-header");
     if (!header) return;
@@ -105,24 +95,9 @@
       document.body.classList.toggle("kg-nav-open");
     });
 
-    // Navbar shows the package, sidebar shows the module.
+    // Just the package name; Haddock's "pkgid: synopsis" caption is hidden in CSS.
     var brand = el("a", { class: "kg-brand", href: "index.html" },
       LAMBDA + "<span>" + esc(pkgName() || moduleName() || "Documentation") + "</span>");
-
-    // Haddock's package caption reads "pkgid: synopsis", and the brand already
-    // shows the pkgid — so drop that prefix and keep just the synopsis. If
-    // nothing remains (no synopsis), mark it empty so the CSS hides it. The
-    // brand carries the package identity, the caption only its tagline.
-    var pkgCap = $(".caption", header);
-    if (pkgCap) {
-      var pkg = pkgName();
-      var capText = (pkgCap.textContent || "").trim();
-      if (pkg && capText.indexOf(pkg) === 0) {
-        var rest = capText.slice(pkg.length).replace(/^\s*:\s*/, "").trim();
-        if (rest) pkgCap.textContent = rest;
-        else pkgCap.classList.add("empty");
-      }
-    }
 
     var search = el("button", { type: "button", class: "kg-search", title: "Search (press / )" },
       ICON.search +
@@ -139,8 +114,7 @@
     cluster.appendChild(search);
     cluster.appendChild(themeButton());
     if (menu) {
-      // Remove Haddock's native Quick Jump link (we provide our own search).
-      // It is injected asynchronously, so keep watching for it.
+      // Drop Haddock's Quick Jump (we have our own search); it's injected async.
       var dropQuickJump = function () {
         $$("li", menu).forEach(function (li) {
           if (/quick\s*jump/i.test(li.textContent || "")) li.remove();
@@ -162,11 +136,8 @@
     return (document.title || "").trim();
   }
 
-  // What the sidebar heading says, derived from the page itself so new page
-  // kinds need no special-casing. A module page uses its module name. Every
-  // other Haddock page titles itself "<package> (Qualifier)" — so the
-  // alphabetical index reads "Index" — and the package contents page (no such
-  // qualifier) falls back to "Contents".
+  // Module page → its name. Other pages title themselves "<pkg> (Qualifier)", so
+  // use the qualifier (e.g. "Index"), else "Contents".
   function sidebarHeading() {
     var cap = $("#module-header .caption");
     if (cap && cap.textContent.trim()) return cap.textContent.trim();
@@ -180,33 +151,25 @@
     return ((m && m.getAttribute("content")) || "").trim();
   }
 
-  /* ====================================================================== */
-  /* Sidebar + scroll-spy                                                    */
-  /* ====================================================================== */
+  /* Sidebar + scroll-spy */
   function buildSidebar() {
     var contents = $("#contents-list");
     var defs = $$("#interface .top > .src a.def[id], #interface .top > .src a.def[name]");
     var pageMenu = $("#page-menu");
-    // Mirror only real cross-page links (Source / Contents / Index). Haddock's
-    // bundle injects JS-only controls into #page-menu at runtime — Quick Jump and
-    // the "Instances" expand/collapse menu — which carry fragment (#) hrefs, do
-    // nothing when cloned, and appear or not depending on whether the bundle has
-    // run yet. Excluding fragment hrefs drops them and kills that race.
+    // Mirror only real cross-page links. The bundle injects fragment-href (#)
+    // controls (Quick Jump, Instances) into #page-menu at runtime; drop those.
     var pageLinks = (pageMenu ? $$("a[href]", pageMenu) : []).filter(function (a) {
       var href = a.getAttribute("href") || "";
       return href && href.charAt(0) !== "#";
     });
-    // Pages with real navigation get a full sidebar — the rest (contents, index)
-    // still get a minimal drawer so the mobile hamburger works.
+    // Real navigation → full sidebar; otherwise a minimal drawer for the hamburger.
     var rich = !!contents || defs.length > 0;
     if (!rich && !pageLinks.length) return;
 
     var nav = el("nav", { id: "kg-sidebar", "aria-label": "Documentation navigation" });
 
-    // The module name is the top-level nav entry. On a module page it links to
-    // the top, so the description / synopsis area (which Haddock's contents list
-    // omits) is reachable and lights up the scroll-spy while you're up there —
-    // elsewhere it falls back to a link to the package index.
+    // Module name is the top entry, linking to the top (reaches the synopsis
+    // area) on a module page, or to the package index elsewhere.
     var header = $("#module-header");
     var home = el("a", { class: "kg-sb-home", href: header ? "#module-header" : "index.html" },
       LAMBDA + " <strong>" + esc(sidebarHeading()) + "</strong>");
@@ -218,34 +181,32 @@
       $$("a[href^='#']", root).forEach(function (a) { spyTargets.push(a); });
     }
 
-    // A <ul> of declaration links. The href is a URL fragment, not a CSS
-    // selector — the id (e.g. "t:Config") goes in verbatim, as Haddock's own
-    // selflinks do.
+    // A <ul> of declaration links (href = "#" + id).
     function declList(decls) {
       var ul = el("ul", { class: "kg-sb-sub" });
       decls.forEach(function (d) {
         var id = d.id || d.getAttribute("name");
         if (!id) return;
-        var a = el("a", { href: "#" + id }, esc(d.textContent.trim()));
-        ul.appendChild(el("li", null, a.outerHTML));
+        var li = el("li");
+        li.appendChild(el("a", { href: "#" + id }, esc(d.textContent.trim())));
+        ul.appendChild(li);
       });
       return ul;
     }
 
-    // Group each declaration under the id of the nearest section heading above
-    // it (headings come back in document order, so the last one that precedes
-    // the declaration wins). Declarations before any heading land under "".
+    // One document-order pass over headings + decls, carrying the current
+    // section heading. Decls before any heading land under "". O(n).
     function declsBySection() {
-      var headings = $$("#interface [id^='g:']");
+      var nodes = $$(
+        "#interface [id^='g:']," +
+        "#interface .top > .src a.def[id]," +
+        "#interface .top > .src a.def[name]"
+      );
       var groups = {};
-      defs.forEach(function (d) {
-        var sec = "";
-        for (var i = 0; i < headings.length; i++) {
-          if (d.compareDocumentPosition(headings[i]) & Node.DOCUMENT_POSITION_PRECEDING)
-            sec = headings[i].id;
-          else break;
-        }
-        (groups[sec] = groups[sec] || []).push(d);
+      var sec = "";
+      nodes.forEach(function (n) {
+        if (n.id && n.id.indexOf("g:") === 0) sec = n.id;
+        else (groups[sec] = groups[sec] || []).push(n);
       });
       return groups;
     }
@@ -263,9 +224,7 @@
       if (ul) {
         var clone = ul.cloneNode(true);
         clone.classList.add("kg-sb-contents");
-        // Nest each section's declarations beneath its contents entry, so the
-        // sidebar is one tree rather than a separate "Declarations" list — the
-        // split made the scroll-spy highlight jump between the two blocks.
+        // Nest each section's decls under its contents entry, so it's one tree.
         $$("a[href^='#']", clone).forEach(function (a) {
           var sec = decodeURIComponent((a.getAttribute("href") || "").slice(1));
           if (groups[sec]) a.parentNode.appendChild(declList(groups[sec]));
@@ -321,6 +280,7 @@
     });
 
     var ticking = false;
+    var active = null;
     function update() {
       ticking = false;
       var line = 150; // activation line just below the sticky header
@@ -335,19 +295,24 @@
         document.documentElement.scrollHeight - 2;
       if (atBottom) current = targets[targets.length - 1].link;
 
-      links.forEach(function (a) { a.classList.toggle("kg-active", a === current); });
+      // Touch the DOM only when the active link changes.
+      if (current !== active) {
+        if (active) active.classList.remove("kg-active");
+        if (current) current.classList.add("kg-active");
+        active = current;
+      }
     }
     function onScroll() {
       if (!ticking) { ticking = true; requestAnimationFrame(update); }
     }
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
-    update();
+    // Defer the first pass a frame: doing it now forces a layout that
+    // reflowSignatures would only invalidate.
+    requestAnimationFrame(update);
   }
 
-  /* ====================================================================== */
-  /* Search overlay (over Haddock's doc-index.json from --quickjump)         */
-  /* ====================================================================== */
+  /* Search overlay (over Haddock's doc-index.json from --quickjump) */
   var searchState = { loaded: false, items: [], overlay: null, input: null, list: null, sel: 0 };
 
   function baseHref() {
@@ -372,9 +337,8 @@
     return data.map(function (e) {
       var mod = typeof e.module === "string" ? e.module
         : (e.module && e.module.name) || "";
-      // Haddock folds a class/data's members into one entry, so `name` is a
-      // space-separated list ("Container empty insert Elem size $dmsize") meant
-      // for matching. Match on the whole string, but only show the first token.
+      // Haddock packs a class's members into one space-separated `name`; match
+      // the whole string, display the first token.
       var full = e.name || "";
       return {
         name: full.split(/\s+/)[0],
@@ -443,8 +407,7 @@
       var it = items[i];
       if (it.search.indexOf(q) !== -1) out.push(it);
     }
-    // Entries whose displayed (primary) name prefix-matches rank first, then
-    // shorter names.
+    // Prefix matches on the display name first, then shorter names.
     out.sort(function (a, b) {
       var ap = a.name.toLowerCase().indexOf(q) === 0 ? 0 : 1;
       var bp = b.name.toLowerCase().indexOf(q) === 0 ? 0 : 1;
@@ -477,15 +440,12 @@
     var r = searchState.results || [];
     var it = r[searchState.sel];
     if (!it) return;
-    // Close first: a same-page result only changes the hash, so the page never
-    // unloads and the overlay would otherwise stay open over the target.
+    // Close first: a same-page result only changes the hash, so the overlay lingers.
     closeSearch();
     location.href = it.link;
   }
 
-  /* ====================================================================== */
-  /* Help overlay                                                            */
-  /* ====================================================================== */
+  /* Help overlay */
   var helpOverlay = null;
   function toggleHelp() {
     if (!helpOverlay) {
@@ -505,9 +465,7 @@
     helpOverlay.classList.toggle("kg-open");
   }
 
-  /* ====================================================================== */
-  /* Global keyboard shortcuts                                               */
-  /* ====================================================================== */
+  /* Global keyboard shortcuts */
   function typingInField(e) {
     var t = e.target;
     return t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
@@ -524,10 +482,8 @@
     else if (e.key === "?") { e.preventDefault(); toggleHelp(); }
   });
 
-  // Functions that document their arguments individually render as just a name
-  // plus an "Arguments" table, with no inline type signature. Rebuild the
-  // signature from the argument bars (":: Int", "-> String", ...) and show it
-  // next to the name, keeping the table below for the per-argument docs.
+  // Functions with per-argument docs render as a name + "Arguments" table and no
+  // inline signature. Rebuild the signature from the argument bars beside the name.
   function inlineArgSignatures() {
     $$("#interface .top").forEach(function (top) {
       var table = $(".subs.arguments table", top);
@@ -552,40 +508,36 @@
     });
   }
 
-  // Re-flow over-long type signatures into the canonical multi-line shape: break
-  // before each top-level :: => and -> (never inside parens or brackets), each
-  // continuation indented two columns so the operators line up. Done only when
-  // the single-line form doesn't fit, so short sigs are left alone — and it is
-  // width-aware and re-runnable, so a sig that fits on a wide screen but not a
-  // narrow/mobile one gets broken (and un-broken again if the screen widens).
-  // Runs after enhanceSourceLinks: we measure the .kg-sig, whose width already
-  // excludes the Source/# links, so the fit test is accurate.
+  // Break over-long signatures at each top-level :: => -> (never inside parens),
+  // continuations indented two columns so the operators align. Only when the
+  // single-line form doesn't fit; width-aware and re-run on resize. Measures the
+  // .kg-sig (width excludes the Source/# links), so runs after enhanceSourceLinks.
   function reflowSignatures() {
-    $$("#interface .src").forEach(function (src) {
+    // Batched (all writes, then all reads, then all writes) so the page reflows
+    // once, not once per signature.
+    var items = $$("#interface .src").map(function (src) {
       var sig = $(".kg-sig", src) || src; // the signature, minus the source links
       collapseBreaks(sig); // start from the single-line form every time
       src.classList.remove("kg-multiline");
-      if (sigNeedsBreak(sig) && breakTypeSig(sig)) {
-        src.classList.add("kg-multiline");
-      }
+      return { src: src, sig: sig, ws: sig.style.whiteSpace };
+    });
+    // nowrap, then read: does the single-line form overflow its box?
+    items.forEach(function (it) { it.sig.style.whiteSpace = "nowrap"; });
+    items.forEach(function (it) {
+      var avail = it.sig.clientWidth;
+      it.brk = avail
+        ? it.sig.scrollWidth - avail > 6
+        // Unmeasurable (inline, or inside a collapsed details): length heuristic.
+        : it.sig.textContent.replace(/\s+/g, " ").trim().length > 64;
+    });
+    items.forEach(function (it) { it.sig.style.whiteSpace = it.ws; });
+    // Write pass: insert the breaks on the ones that overflowed.
+    items.forEach(function (it) {
+      if (it.brk && breakTypeSig(it.sig)) it.src.classList.add("kg-multiline");
     });
   }
 
-  // True when the single-line signature is wider than the space it has.
-  function sigNeedsBreak(sig) {
-    var avail = sig.clientWidth;
-    if (!avail) {
-      // Unmeasurable (inline, or inside a collapsed details): length heuristic.
-      return sig.textContent.replace(/\s+/g, " ").trim().length > 64;
-    }
-    var prev = sig.style.whiteSpace;
-    sig.style.whiteSpace = "nowrap";
-    var over = sig.scrollWidth - avail > 6;
-    sig.style.whiteSpace = prev;
-    return over;
-  }
-
-  // Undo a previous break pass: collapse each inserted "\n  " back to one space.
+  // Collapse inserted "\n  " breaks back to single spaces.
   function collapseBreaks(root) {
     var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
     for (var n = walker.nextNode(); n; n = walker.nextNode()) {
@@ -629,18 +581,14 @@
     return broke;
   }
 
-  // The chevron is only an indicator — make the whole instance card header
-  // toggle. We toggle the linked <details> directly (forwarding a click to
-  // Haddock's control proved unreliable) and keep the chevron class in sync.
-  // The chevron itself is left to Haddock's own handler. No-JS users fall back
-  // to the native <summary> toggle (see the body.js-enabled CSS gating).
+  // Make the whole instance-card header toggle its <details> (forwarding a click
+  // to Haddock's control was unreliable). No-JS falls back to the native summary.
   function enlargeInstanceToggles() {
     $$("#interface .instance.details-toggle-control[data-details-id]").forEach(function (ctrl) {
       var det = document.getElementById(ctrl.getAttribute("data-details-id"));
       var row = ctrl.closest("tr");
-      // Haddock emits a literal space after the (empty) chevron span. Drop it so
-      // the gap to the instance name comes only from the chevron's margin, the
-      // same as every other toggle.
+      // Drop Haddock's literal space after the chevron span, so spacing to the
+      // name matches every other toggle.
       var after = ctrl.nextSibling;
       if (after && after.nodeType === 3) after.textContent = after.textContent.replace(/^\s+/, "");
       if (!det || !row || row.dataset.kgToggle) return;
@@ -655,8 +603,7 @@
     });
   }
 
-  // Split each signature row into a scrollable signature and a pinned links box,
-  // so Source / # sit consistently at the right (flex, no overlap).
+  // Split each row into a scrollable signature + a pinned links box (Source / #).
   function enhanceSourceLinks() {
     $$(".src").forEach(function (src) {
       var links = $$("a.link, a.selflink", src).filter(function (a) {
@@ -678,9 +625,7 @@
     });
   }
 
-  /* ====================================================================== */
-  /* Source pages: line numbers + target-line highlight                      */
-  /* ====================================================================== */
+  /* Source pages: line numbers + target-line highlight */
   function enhanceSource() {
     var pre = $("pre");
     if (!pre || !$(".hs-keyword, .hs-identifier", pre)) return;
@@ -734,9 +679,7 @@
     return window.CSS && CSS.escape ? CSS.escape(s) : String(s).replace(/[^\w-]/g, "\\$&");
   }
 
-  /* ====================================================================== */
-  /* Footer credit                                                           */
-  /* ====================================================================== */
+  /* Footer credit */
   function enhanceFooter() {
     var footer = $("#footer p") || $("#footer");
     if (!footer || footer.querySelector(".kg-credit")) return;
@@ -745,9 +688,8 @@
     footer.appendChild(span);
   }
 
-  // Multi-package landing page (generated by kedgeree --landing): give it the
-  // same theme toggle as a doc page. The Haddock-specific passes above all no-op
-  // on it (it has no #package-header, #interface, #footer, source spans…).
+  // Landing page (kedgeree --landing): just add the theme toggle. The Haddock
+  // passes above all no-op on it.
   function enhanceLanding() {
     if (!document.body.classList.contains("kg-landing")) return;
     var header = $(".kg-landing-header");
@@ -757,9 +699,7 @@
     header.appendChild(actions);
   }
 
-  /* ====================================================================== */
-  /* Boot                                                                    */
-  /* ====================================================================== */
+  /* Boot */
   function init() {
     applyTheme(currentTheme());
     enhanceHeader();
@@ -772,8 +712,7 @@
     enhanceSource();
     enhanceFooter();
 
-    // Re-flow signatures when the viewport changes (resize / rotate), so the
-    // multi-line breaks track whether the single-line form still fits.
+    // Re-flow signatures on resize, since the fit depends on width.
     var reflowTimer;
     window.addEventListener("resize", function () {
       clearTimeout(reflowTimer);
@@ -787,8 +726,7 @@
       document.body.classList.remove("kg-nav-open");
     });
 
-    // One checkbox in Haddock's preferences dropdown uses a bare <span>, not a
-    // <label>, so delegate clicks on its text to the checkbox.
+    // Haddock's preferences dropdown uses a bare <span> not a <label>; delegate.
     document.addEventListener("click", function (e) {
       var span = e.target.closest(".dropdown-menu span");
       if (!span || span.closest("label")) return;

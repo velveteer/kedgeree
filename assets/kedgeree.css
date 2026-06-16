@@ -22,6 +22,8 @@ html[data-js] .hide-when-js-enabled { display: none; }
 .hide { display: none; }
 .show { display: inherit; }
 .hidden { display: none !important; }
+/* MathJax's corner "Processing math" load indicator. Math still typesets. */
+#MathJax_Message { display: none !important; }
 
 /* Collapse/expand chevrons. Haddock's bundle JS toggles .collapser (open) /
    .expander (closed) on the toggle controls. Drawn as an SVG chevron via
@@ -161,8 +163,10 @@ code, pre, .src, tt, .hs-identifier, .keyword {
   font-size: 0.9rem;
 }
 
-#package-header .caption { color: var(--kg-fg-muted); font-weight: 600; }
-#package-header .caption.empty { display: none; }
+/* The brand (package name) is the nav title. Haddock's package caption
+   ("pkgid: synopsis") duplicates it and its markup varies by Haddock version,
+   so hide it rather than render or parse it. */
+#package-header .caption { display: none; }
 
 #package-header ul.links,
 #package-header #page-menu {

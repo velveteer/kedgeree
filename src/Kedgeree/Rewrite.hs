@@ -187,14 +187,14 @@ rewriteSource prefix inj =
 
 -- | Shared logic: skip if already at the current version — otherwise clear any
 -- older Kedgeree injection, strip Haddock's stylesheets (we replace them) and
--- the Google Fonts CDN link (we self-host fonts), mark MathJax @defer@ so it
--- stops blocking the parser, and splice our injection in at the start of @<head>@.
+-- the Google Fonts CDN link (we self-host fonts), drop or defer Haddock's
+-- MathJax, and splice our injection in at the start of @<head>@.
 rewrite :: Inject -> [Text] -> Text -> Text -> Text
 rewrite inj sheets injection html
   -- @--force@ skips this short-circuit — the strip-and-reinject path below
   -- already cleans a previous injection, so re-theming stays idempotent.
   | not (injForce inj) && stamp `T.isInfixOf` html = html
-  | otherwise = injectAfterHead injection (deferMathJax stripped)
+  | otherwise = injectAfterHead injection (handleMathJax stripped)
   where
     stripped = foldr removeLinkContaining cdnStripped sheets
     cdnStripped = removeLinkContaining "fonts.googleapis.com" cleared
@@ -394,6 +394,42 @@ addBodyClass klass html =
           | T.null c -> tag <> " " <> classAttr <> klass <> "\""
           | otherwise ->
               b <> classAttr <> klass <> " " <> T.drop (T.length classAttr) c
+
+-- | Haddock loads MathJax on every page, and it parks a \"Processing math\"
+-- box in the corner while it loads. Math is wrapped in @class="mathjax"@ (per
+-- Haddock's tex2jax @processClass@ config), so when none is present we drop
+-- MathJax entirely; otherwise we keep it but mark the loader @defer@ (and hide
+-- its message box in CSS).
+handleMathJax :: Text -> Text
+handleMathJax html
+  | "class=\"mathjax\"" `T.isInfixOf` html = deferMathJax html
+  | otherwise = removeMathJax html
+
+-- | Strip Haddock's MathJax loader and its inline @x-mathjax-config@ block,
+-- content and closing tag included.
+removeMathJax :: Text -> Text
+removeMathJax = go
+  where
+    go t =
+      case T.breakOn "<script" t of
+        (before, rest)
+          | T.null rest -> before
+          | otherwise ->
+              let (body, afterGt) = T.breakOn ">" rest
+                  tag = body <> ">"
+                  remainder = T.drop 1 afterGt
+               in if isMathJax tag
+                    then before <> go (dropThroughClose remainder)
+                    else before <> tag <> go remainder
+    isMathJax tag =
+      let low = T.toLower tag
+       in ("src" `T.isInfixOf` tag && "mathjax" `T.isInfixOf` low)
+            || "x-mathjax-config" `T.isInfixOf` low
+    dropThroughClose t =
+      case T.breakOn "</script>" t of
+        (_, rest)
+          | T.null rest -> t
+          | otherwise -> T.drop (T.length "</script>") rest
 
 -- | Mark Haddock's external MathJax @<script>@ as @defer@ so it no longer blocks
 -- the parser (and therefore first paint). MathJax still typesets on load. We
