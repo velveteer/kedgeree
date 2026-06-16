@@ -438,47 +438,45 @@ breakLongSigs =
                   <> close
                   <> goElem open close (T.drop (T.length close) afterInner)
 
-    -- Break the signature (everything before the Source/# links) if it's long,
-    -- then keep every @->@ from splitting across a soft-wrap. A hyphen is a break
-    -- opportunity, so a narrow viewport would otherwise wrap "Int -" then "> a".
-    -- When the element has Source/# links (the <p> decls), move the signature into
-    -- a scrollable .kg-sig so a lone over-long identifier scrolls rather than
-    -- sliding under the pinned links.
+    -- Highlight the signature (everything before the Source/# links), then for a
+    -- long one move it into a scrollable .kg-sig (only the <p> decls carry links)
+    -- so a lone over-long identifier scrolls rather than sliding under them.
     processSig inner =
       let (sig, links) = T.breakOn "<span class=\"kg-srclinks\">" inner
           long = visibleLen sig > 68
-          sig' = atomicArrows (if long then breakArrows sig else sig)
+          sig' = highlight long sig
           out
             | T.null links = sig'
             | otherwise = "<span class=\"kg-sig\">" <> sig' <> "</span>" <> links
        in (out, long)
 
-    atomicArrows = T.replace "-&gt;" "<span class=\"kg-arr\">-&gt;</span>"
-
-    -- Scan the signature HTML, tracking bracket depth in text and skipping tags,
-    -- inserting a break before each top-level arrow. Arrows carry their @>@ as the
-    -- @&gt;@ entity in the markup.
-    breakArrows = T.pack . scan (0 :: Int) False . T.unpack
-    scan _ _ [] = []
-    scan depth seen ('<' : cs) =
-      let (tag, rest) = break (== '>') cs
-       in case rest of
-            ('>' : rest') -> '<' : tag ++ '>' : scan depth seen rest'
-            _ -> '<' : tag
-    scan depth seen s@(c : cs)
-      | c == '(' || c == '[' = c : scan (depth + 1) True cs
-      | c == ')' || c == ']' = c : scan (max 0 (depth - 1)) True cs
-      | depth == 0 && seen
-      , Just (arrow, rest) <- arrowAt s =
-          '\n' : ' ' : ' ' : arrow ++ scan depth True rest
-      | c == ' ' || c == '\t' || c == '\n' = c : scan depth seen cs
-      | otherwise = c : scan depth True cs
-
-    arrowAt s
-      | "::" `isPrefixOf` s = Just ("::", drop 2 s)
-      | "-&gt;" `isPrefixOf` s = Just ("-&gt;", drop 5 s)
-      | "=&gt;" `isPrefixOf` s = Just ("=&gt;", drop 5 s)
-      | otherwise = Nothing
+    -- Scan the signature HTML, skipping tags and tracking bracket depth in text.
+    -- Wrap every @::@ @->@ @=>@ operator in a colored, non-breaking span (the type
+    -- references are already links, keywords already classed, so this completes
+    -- the syntax coloring and keeps @->@ from splitting across a soft-wrap). For a
+    -- long signature, also start a fresh two-column-indented line before each
+    -- top-level operator. Operators carry their @>@ as the @&gt;@ entity.
+    highlight long = T.pack . scan (0 :: Int) False . T.unpack
+      where
+        scan _ _ [] = []
+        scan depth seen ('<' : cs) =
+          let (tag, rest) = break (== '>') cs
+           in case rest of
+                ('>' : rest') -> '<' : tag ++ '>' : scan depth seen rest'
+                _ -> '<' : tag
+        scan depth seen s@(c : cs)
+          | c == '(' || c == '[' = c : scan (depth + 1) True cs
+          | c == ')' || c == ']' = c : scan (max 0 (depth - 1)) True cs
+          | Just (op, rest) <- opAt s =
+              let brk = if long && depth == 0 && seen then "\n  " else ""
+               in brk ++ "<span class=\"kg-op\">" ++ op ++ "</span>" ++ scan depth True rest
+          | c == ' ' || c == '\t' || c == '\n' = c : scan depth seen cs
+          | otherwise = c : scan depth True cs
+        opAt s
+          | "::" `isPrefixOf` s = Just ("::", drop 2 s)
+          | "-&gt;" `isPrefixOf` s = Just ("-&gt;", drop 5 s)
+          | "=&gt;" `isPrefixOf` s = Just ("=&gt;", drop 5 s)
+          | otherwise = Nothing
 
     -- Visible (rendered) length: tags dropped, the few entities we care about decoded.
     visibleLen = T.length . decode . stripTags

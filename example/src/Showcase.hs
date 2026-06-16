@@ -3,6 +3,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -86,7 +87,7 @@ module Showcase
   , Tabulate (..)
 
     -- * GADTs & existentials
-  , Expr (..)
+  , Expr (.., Zero)
   , Showable (..)
 
     -- * Operators
@@ -325,6 +326,11 @@ data Expr a where
   -- | A constructor with a deliberately long, nested signature, to show how a
   -- long GADT constructor type renders when it wraps.
   Annotated :: String -> [(String, String)] -> Either String (Maybe (Expr a)) -> Maybe (Int, Int) -> Expr a
+
+-- | The zero literal, as a pattern synonym bundled with 'Expr'. Here to show
+-- how a bundled pattern's description lays out next to other declarations.
+pattern Zero :: Expr Int
+pattern Zero = IntLit 0
 
 -- | An existential box around anything 'Show'able.
 data Showable = forall a. (Show a) => MkShowable a

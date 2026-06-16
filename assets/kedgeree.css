@@ -643,6 +643,23 @@ td.src,
 .src a.def, a.def { color: var(--kg-fg); font-weight: 600; }
 .src a.def:hover { color: var(--kg-accent-strong); }
 
+/* Type references in a signature are hyperlinks (Source/# links are excluded by
+   class, the defined name has no href). Color them as types, matching the source
+   pages, so signatures read as highlighted code. A faint underline keeps them
+   obviously clickable, and it strengthens to the accent on hover. */
+.src a[href]:not(.link):not(.selflink),
+.src a[href]:not(.link):not(.selflink):visited {
+  color: var(--kg-syn-type);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--kg-syn-type) 32%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+.src a[href]:not(.link):not(.selflink):hover {
+  color: var(--kg-accent);
+  text-decoration-color: currentColor;
+}
+
 /* The Source / # links. wrapSourceLinks (Rewrite.hs) groups each declaration's
    pair into a .kg-srclinks span, pinned to the top-right of the signature.
    text-indent: 0 keeps the box itself out of the signature's hanging indent. */
@@ -673,9 +690,10 @@ a.link:hover, a.selflink:hover { color: var(--kg-accent); text-decoration: none;
    The explicit indent does the aligning, so drop the soft-wrap hanging indent. */
 .kg-multiline { white-space: pre-wrap; }
 .kg-multiline .kg-sig { padding-left: 0; text-indent: 0; }
-/* Keep "->" whole so a narrow viewport wraps at the spaces around it, never
-   between the hyphen and the angle bracket. */
-.kg-arr { white-space: nowrap; }
+/* The :: -> => operators (wrapped server-side by breakLongSigs). Colored to
+   complete the signature syntax highlighting, and kept whole so a narrow viewport
+   wraps at the spaces around them, never between a hyphen and its angle bracket. */
+.kg-op { color: var(--kg-syn-operator); white-space: nowrap; }
 
 /* ==========================================================================
    Sub-blocks: constructors, methods, instances
@@ -683,11 +701,13 @@ a.link:hover, a.selflink:hover { color: var(--kg-accent); text-decoration: none;
 .subs { margin: 0.75rem 0 0; }
 .subs.constructors table,
 .subs.methods table,
-.subs.fields table { width: 100%; border-collapse: collapse; }
+.subs.fields table,
+.subs.bundled-patterns table { width: 100%; border-collapse: collapse; }
 
 .subs.constructors td,
 .subs.methods td,
-.subs.fields td {
+.subs.fields td,
+.subs.bundled-patterns td {
   padding: 0.4rem 0.6rem;
   border-bottom: 1px solid var(--kg-border);
   vertical-align: top;
@@ -702,16 +722,24 @@ a.link:hover, a.selflink:hover { color: var(--kg-accent); text-decoration: none;
 .subs td.doc { color: var(--kg-fg-muted); }
 .subs td.doc.empty { display: none; }
 
-/* Constructors stack at every width: signature on its own line (a code bar),
-   description below. Their signatures are long, so the side-by-side table layout
-   squishes the prose. This reads far better. */
+/* Constructors and bundled patterns stack at every width: signature on its own
+   line (a code bar), description below. Side by side, a long signature squishes
+   the prose. This also keeps them consistent with every other declaration, which
+   puts the description on a new line. */
 .subs.constructors table,
 .subs.constructors tbody,
 .subs.constructors tr,
-.subs.constructors td { display: block; }
-.subs.constructors td.src { overflow-x: auto; }
-.subs.constructors td.doc { padding: 0.45rem 0.6rem 0.7rem; }
-.subs.constructors td.doc.empty { display: none; padding: 0; }
+.subs.constructors td,
+.subs.bundled-patterns table,
+.subs.bundled-patterns tbody,
+.subs.bundled-patterns tr,
+.subs.bundled-patterns td { display: block; }
+.subs.constructors td.src,
+.subs.bundled-patterns td.src { overflow-x: auto; }
+.subs.constructors td.doc,
+.subs.bundled-patterns td.doc { padding: 0.45rem 0.6rem 0.7rem; }
+.subs.constructors td.doc.empty,
+.subs.bundled-patterns td.doc.empty { display: none; padding: 0; }
 
 /* Record fields stack: signature above, description below. (Haddock renders
    these as a table, so the selectors target ul/li/dfn to override it.) */
