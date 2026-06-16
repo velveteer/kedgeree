@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
--- | @kedgeree@ — apply a modern theme to a directory of Haddock HTML.
+-- | @kedgeree@, apply a modern theme to a directory of Haddock HTML.
 module Main (main) where
 
 import qualified Data.Text as T

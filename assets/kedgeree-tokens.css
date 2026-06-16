@@ -1,17 +1,17 @@
 /* ==========================================================================
-   Kedgeree — design tokens & bundled fonts (the single source of truth).
+   Kedgeree design tokens and bundled fonts (the single source of truth).
 
    Both kedgeree.css (documentation pages) and kedgeree-source.css (hyperlinked
    source pages) load THIS first, so the palette and fonts live in exactly one
    place instead of being copy-pasted across the two stylesheets.
 
-   The light palette lives in :root; dark overrides apply either explicitly
-   (html[data-resolved="dark"], set by kedgeree.js / the inline bootstrap) or,
+   The light palette lives in :root. Dark overrides apply either explicitly
+   (html[data-resolved="dark"], set by kedgeree.js or the inline bootstrap) or,
    for the no-JS case, via prefers-color-scheme. The two dark blocks are
-   necessarily identical — a media query and an attribute selector cannot be
-   merged in plain CSS — so keep them in sync.
+   necessarily identical, since a media query and an attribute selector cannot be
+   merged in plain CSS, so keep them in sync.
 
-   Tokens used by only one surface (layout sizes on doc pages; --kg-gutter /
+   Tokens used by only one surface (layout sizes on doc pages, --kg-gutter and
    --kg-line-hl on source pages) are harmless no-ops where unused, so they live
    here too rather than being split back out.
    ========================================================================== */
@@ -105,7 +105,7 @@
   }
 }
 
-/* Explicit dark (chosen by the visitor — overrides the media query). */
+/* Explicit dark, chosen by the visitor, overrides the media query. */
 html[data-resolved="dark"] {
   --kg-accent:        #b49bff;
   --kg-accent-strong: #c8b6ff;

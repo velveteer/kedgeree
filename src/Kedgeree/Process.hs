@@ -70,8 +70,8 @@ data Options = Options
   , optLanding :: Maybe Text
   -- ^ when set, generate a package landing page (with this title) at the root
   , optPackages :: [Text]
-  -- ^ curate which package subdirectories the landing lists, and their order;
-  -- empty means auto-discover every package directory, alphabetically
+  -- ^ curate which package subdirectories the landing lists, and their order.
+  -- Empty means auto-discover every package directory, alphabetically
   , optProjectRoot :: Maybe FilePath
   -- ^ override the auto-detected project root used to read package synopses
   , optLandingDescription :: Maybe Text
@@ -146,7 +146,7 @@ run opts = do
 
 -- | Write a themed landing page to @optDir\/index.html@ listing the package
 -- directories beneath it. With no @--package@ names it lists every discovered
--- package alphabetically; otherwise it keeps exactly those, in the given order,
+-- package alphabetically. Otherwise it keeps exactly those, in the given order,
 -- warning on @stderr@ about any that do not exist.
 writeLanding :: Options -> Inject -> Text -> IO ()
 writeLanding opts inj title = do
@@ -243,8 +243,8 @@ cabalFields = collect . T.lines
     indented = maybe False ((`elem` (" \t" :: String)) . fst) . T.uncons
 
 -- | Every @.cabal@ file at or below @dir@. We don't descend into hidden
--- directories (@.git@, @.stack-work@, …) or cabal's build tree, none of which
--- carry a project's own @.cabal@ files — it just avoids walking that noise.
+-- directories (@.git@, @.stack-work@, and the like) or cabal's build tree. None
+-- of those carry a project's own @.cabal@ files, so this just skips that noise.
 findCabalFiles :: FilePath -> IO [FilePath]
 findCabalFiles dir = do
   entries <- listDirectory dir
@@ -308,7 +308,7 @@ rewritePage :: Options -> Inject -> Text -> Maybe Text -> FilePath -> IO (PageKi
 rewritePage opts inj prefix mpkg path = do
   bytes <- BS.readFile path
   case TE.decodeUtf8' bytes of
-    -- A non-UTF-8 file isn't Haddock output we can theme — skip it rather than
+    -- A non-UTF-8 file isn't Haddock output we can theme, so skip it rather than
     -- aborting the whole (concurrent) run.
     Left _ -> do
       hPutStrLn stderr $ "kedgeree: skipping (not valid UTF-8): " <> path
@@ -320,7 +320,7 @@ rewritePage opts inj prefix mpkg path = do
         _ -> do
           let themed = case kind of
                 PageSource -> rewriteSource prefix inj original
-                _ -> rewriteMain prefix inj original
+                _ -> rewriteMain prefix inj mpkg original
               rewritten = case (kind, mpkg) of
                 (PageMain, Just pkg) -> injectPackageMeta pkg themed
                 _ -> themed

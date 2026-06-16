@@ -1,10 +1,10 @@
 /* ==========================================================================
-   Kedgeree — hyperlinked source pages (Haddock's src/*.html).
+   Kedgeree: hyperlinked source pages (Haddock's src/*.html).
 
    These pages are bare: a single <pre> of tokenised Haskell with hs-* spans
-   and per-line <span id="line-N"> anchors. The palette and fonts come from
-   kedgeree-tokens.css, which every page loads before this file; here we only
-   consume the --kg-* custom properties.
+   and per-line <span id="line-N"> anchors. Palette and fonts come from
+   kedgeree-tokens.css, loaded before this file. Here we only consume the
+   --kg-* custom properties.
    ========================================================================== */
 
 /* ----- Page ----- */

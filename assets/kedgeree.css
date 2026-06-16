@@ -1,9 +1,9 @@
 /* ==========================================================================
-   Kedgeree — a modern theme for Haddock
+   Kedgeree, a modern theme for Haddock.
    Main documentation pages. Source pages are themed by kedgeree-source.css.
 
-   The palette and bundled fonts live in kedgeree-tokens.css, which every page
-   loads before this file; here we only consume the --kg-* custom properties.
+   Palette and bundled fonts live in kedgeree-tokens.css, loaded before this
+   file. Here we only consume the --kg-* custom properties.
    ========================================================================== */
 
 /* ==========================================================================
@@ -15,8 +15,8 @@
 
 /* Haddock's bundle uses these to toggle instances/synopsis. The bundle adds
    body.js-enabled only after load, so we also key off data-js, which boot stamps
-   on <html> before first paint — otherwise these labels paint and then vanish in
-   a reflow (most visible as the contents page's module tree settling). */
+   on <html> before first paint. Otherwise these labels paint then vanish in a
+   reflow (most visible as the contents page's module tree settling). */
 body.js-enabled .hide-when-js-enabled,
 html[data-js] .hide-when-js-enabled { display: none; }
 .hide { display: none; }
@@ -27,9 +27,9 @@ html[data-js] .hide-when-js-enabled { display: none; }
 
 /* Collapse/expand chevrons. Haddock's bundle JS toggles .collapser (open) /
    .expander (closed) on the toggle controls. Drawn as an SVG chevron via
-   mask-image (background-color is the ink) so every toggle shows the same crisp
-   icon. The bundled subset fonts have no triangle glyph to use instead. A
-   matching .noexpander spacer keeps module names aligned in the module tree. */
+   mask-image (background-color is the ink) so every toggle matches. The bundled
+   subset fonts have no triangle glyph. A matching .noexpander spacer keeps
+   module names aligned in the module tree. */
 .collapser, .expander, .details-toggle-control { cursor: pointer; }
 .expander::before,
 .collapser::before {
@@ -50,10 +50,10 @@ html[data-js] .hide-when-js-enabled { display: none; }
   mask-size: 0.66em auto;
 }
 .noexpander::before { content: ""; display: inline-block; width: 0.98em; }
-/* In the JS path (boot stamps data-js on <html> before first paint) reserve the
-   chevron's box on the bare toggle control, so a row does not shift sideways
-   when Haddock's bundle later adds .collapser / .expander and the chevron grows
-   in. Dimensions only, so .collapser / .expander still own the chevron itself. */
+/* In the JS path (boot stamps data-js before first paint) reserve the chevron's
+   box on the bare toggle control, so a row does not shift sideways when the
+   bundle later adds .collapser / .expander and the chevron grows in. Dimensions
+   only, so .collapser / .expander still own the chevron itself. */
 html[data-js] .details-toggle-control::before {
   content: "";
   display: inline-block;
@@ -63,20 +63,20 @@ html[data-js] .details-toggle-control::before {
   vertical-align: -0.18em;
 }
 /* The module tree is always open once JS runs, so draw its open chevron up front.
-   The contents page is then fully static from the first paint, with no chevron
-   popping in per row. Same mask as .collapser::before, so it matches exactly. */
+   The contents page is then static from first paint, no chevron popping in per
+   row. Same mask as .collapser::before, so it matches exactly. */
 html[data-js] #module-list .details-toggle-control::before {
   background-color: var(--kg-fg-faint);
   -webkit-mask: var(--kg-chevron-open) left center / 0.66em auto no-repeat;
   mask: var(--kg-chevron-open) left center / 0.66em auto no-repeat;
 }
 /* Uniform hover for every toggle (module tree, instances, instance/Examples
-   section headers, synopsis): accent the chevron, and brighten heading-style
+   section headers, synopsis). Accent the chevron, brighten heading-style
    toggles. */
 body.js-enabled .details-toggle-control:hover::before,
 body.js-enabled #synopsis summary:hover::before { background-color: var(--kg-accent); }
 /* The module-tree chevron is painted by an id-specific rule above, so its hover
-   accent has to match that specificity to win. */
+   accent must match that specificity to win. */
 body.js-enabled #module-list .details-toggle-control:hover::before { background-color: var(--kg-accent); }
 body.js-enabled h4.details-toggle-control { transition: color 0.12s ease; }
 body.js-enabled h4.details-toggle-control:hover { color: var(--kg-fg); }
@@ -84,8 +84,8 @@ body.js-enabled h4.details-toggle-control:hover { color: var(--kg-fg); }
 /* Make native controls (checkboxes, scrollbars, form fields) match the theme. */
 :root {
   color-scheme: light;
-  /* One chevron icon, used by every toggle (mask-image, so background-color is
-     the ink and it recolours on hover). */
+  /* One chevron icon for every toggle (mask-image, so background-color is the
+     ink and it recolours on hover). */
   --kg-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 14' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.6 2 6.2 7 1.6 12'/%3E%3C/svg%3E");
   --kg-chevron-open: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 8' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 1.6 7 6.2 12 1.6'/%3E%3C/svg%3E");
 }
@@ -164,8 +164,8 @@ code, pre, .src, tt, .hs-identifier, .keyword {
 }
 
 /* The brand (package name) is the nav title. Haddock's package caption
-   ("pkgid: synopsis") duplicates it and its markup varies by Haddock version,
-   so hide it rather than render or parse it. */
+   ("pkgid: synopsis") duplicates it and its markup varies by version, so hide
+   it rather than render or parse it. */
 #package-header .caption { display: none; }
 
 #package-header ul.links,
@@ -173,7 +173,10 @@ code, pre, .src, tt, .hs-identifier, .keyword {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  margin: 0 0 0 auto;
+  /* .kg-actions (margin-left:auto) does the right-alignment. The page menu sits
+     after it with a small gap. Two auto margins would split the free space and
+     float the search to the centre until the script ran. */
+  margin: 0 0 0 0.5rem;
   padding: 0;
   list-style: none;
 }
@@ -207,6 +210,56 @@ code, pre, .src, tt, .hs-identifier, .keyword {
   font: inherit;
 }
 #package-header #page-menu button:hover { color: var(--kg-fg); }
+/* Our Instances dropdown: a <details> whose summary sits among the nav links,
+   menu popping out below. */
+#package-header #page-menu .kg-instances { position: relative; }
+#package-header #page-menu .kg-instances > summary {
+  list-style: none;
+  padding: 0.3rem 0.5rem;
+  margin: 0 -0.1rem;
+  border-radius: var(--kg-radius-s);
+  color: var(--kg-fg-muted);
+  cursor: pointer;
+}
+#package-header #page-menu .kg-instances > summary::-webkit-details-marker { display: none; }
+#package-header #page-menu .kg-instances > summary:hover,
+#package-header #page-menu .kg-instances[open] > summary {
+  background: var(--kg-accent-soft);
+  color: var(--kg-fg);
+}
+.kg-instances-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  margin: 0;
+  padding: 0.3rem;
+  list-style: none;
+  background: var(--kg-bg-raised);
+  border: 1px solid var(--kg-border);
+  border-radius: var(--kg-radius-s);
+  box-shadow: 0 10px 30px var(--kg-shadow);
+  min-width: 13rem;
+  z-index: 60;
+}
+.kg-instances-menu li { margin: 0; }
+.kg-instances-menu li + li::before { content: none; }
+.kg-instances-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.55rem;
+  border: none;
+  background: none;
+  border-radius: var(--kg-radius-s);
+  color: var(--kg-fg-muted);
+  cursor: pointer;
+  font: inherit;
+  white-space: nowrap;
+}
+.kg-instances-menu button:hover {
+  background: var(--kg-accent-soft);
+  color: var(--kg-fg);
+}
 
 /* Brand + theme toggle injected by kedgeree.js. */
 .kg-brand {
@@ -218,7 +271,7 @@ code, pre, .src, tt, .hs-identifier, .keyword {
 }
 .kg-brand svg { width: 1.4rem; height: 1.4rem; color: var(--kg-accent); }
 
-/* Brand mark — a plain lambda for now. */
+/* Brand mark: a plain lambda for now. */
 .kg-lambda {
   color: var(--kg-accent);
   font-family: var(--kg-mono);
@@ -241,7 +294,24 @@ code, pre, .src, tt, .hs-identifier, .keyword {
   cursor: pointer;
 }
 .kg-iconbtn:hover { color: var(--kg-fg); border-color: var(--kg-border-strong); }
-.kg-iconbtn svg { width: 1.1rem; height: 1.1rem; }
+/* Button icons are masks from icons/*.svg, inked with currentColor. No inline
+   SVG in the markup, so the same files serve the server-rendered and JS-built
+   buttons. Each button picks its glyph via --kg-icon. */
+.kg-menu-toggle::before,
+.kg-theme::before,
+.kg-search::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 1.1rem;
+  height: 1.1rem;
+  background-color: currentColor;
+  -webkit-mask: var(--kg-icon) center / contain no-repeat;
+  mask: var(--kg-icon) center / contain no-repeat;
+}
+.kg-menu-toggle { --kg-icon: url("icons/menu.svg"); }
+.kg-theme { --kg-icon: url("icons/auto.svg"); }
+html[data-theme="light"] .kg-theme { --kg-icon: url("icons/sun.svg"); }
+html[data-theme="dark"] .kg-theme { --kg-icon: url("icons/moon.svg"); }
 
 /* Header search trigger. */
 .kg-search {
@@ -259,7 +329,7 @@ code, pre, .src, tt, .hs-identifier, .keyword {
   font-size: 0.85rem;
 }
 .kg-search:hover { border-color: var(--kg-border-strong); }
-.kg-search svg { width: 1rem; height: 1rem; flex: 0 0 auto; }
+.kg-search::before { --kg-icon: url("icons/search.svg"); width: 1rem; height: 1rem; }
 .kg-search kbd { margin-left: auto; }
 
 kbd {
@@ -284,8 +354,8 @@ kbd {
   height: calc(100vh - var(--kg-header-h));
   overflow-y: auto;
   /* The full-height sticky sidebar reaches the viewport bottom, where the
-     lifted footer (z-index) paints over it. The generous bottom padding lets
-     the last nav items scroll up clear of that footer strip. */
+     lifted footer (z-index) paints over it. Generous bottom padding lets the
+     last nav items scroll up clear of that footer strip. */
   padding: 1.25rem 0.75rem 7rem 1.25rem;
   border-right: 1px solid var(--kg-border);
   background: var(--kg-bg);
@@ -345,7 +415,7 @@ body.kg-has-sidebar #table-of-contents { display: none; }
   box-sizing: border-box;
 }
 
-/* The sidebar's module-name entry jumps here — keep it clear of the sticky
+/* The sidebar's module-name entry jumps here. Keep it clear of the sticky
    header, like the section headings and declaration blocks. */
 #module-header { scroll-margin-top: calc(var(--kg-header-h) + 1rem); }
 
@@ -382,10 +452,10 @@ body.kg-has-sidebar #table-of-contents { display: none; }
 
 h2, h3, h4 { letter-spacing: -0.01em; }
 
-/* Doc sub-headings (=== / ==== in doc comments, e.g. "Examples"). They are
-   collapsible via Haddock's details-toggle, hence the pointer cursor from
-   .details-toggle-control. Give them real spacing and weight so they read as
-   section labels rather than cramped bold text. */
+/* Doc sub-headings (=== / ==== in doc comments, e.g. "Examples"). Collapsible
+   via Haddock's details-toggle, hence the pointer cursor from
+   .details-toggle-control. Real spacing and weight so they read as section
+   labels rather than cramped bold text. */
 .subheading {
   font-size: 0.95rem;
   font-weight: 700;
@@ -434,11 +504,11 @@ pre {
 }
 pre code { background: none; border: none; padding: 0; }
 
-/* Interactive examples — Haddock renders >>> blocks as <pre class="screen">,
+/* Interactive examples. Haddock renders >>> blocks as <pre class="screen">,
    with each input as <code class="prompt">&gt;&gt;&gt;</code><strong
    class="userinput">…</strong> and the expected output as the following text.
-   Style the prompt faint and unselectable, the input emphasised, and let the
-   output sit muted, so the block reads like a transcript. */
+   Prompt faint and unselectable, input emphasised, output muted, so the block
+   reads like a transcript. */
 pre.screen {
   color: var(--kg-fg-muted);
 }
@@ -490,6 +560,22 @@ td.src,
 .top > .src {
   position: relative;
   box-shadow: 0 1px 2px var(--kg-shadow);
+  /* overflow is visible so the absolutely-positioned Source/# links can show.
+     padding-right reserves their column. The signature itself lives in .kg-sig,
+     which carries the wrapping and its own scroll. */
+  overflow: visible;
+  padding-right: 5rem;
+}
+/* The scrollable signature inside a top-level declaration, kept clear of the
+   pinned Source/# links. Wraps at whitespace (the spaces around :: => ->) with a
+   hanging indent. A lone over-long identifier scrolls here rather than sliding
+   under the links. */
+.kg-sig {
+  display: block;
+  white-space: pre-wrap;
+  overflow-x: auto;
+  padding-left: 2ch;
+  text-indent: -2ch;
 }
 
 /* Synopsis: an in-flow collapsible list of signatures. */
@@ -557,8 +643,9 @@ td.src,
 .src a.def, a.def { color: var(--kg-fg); font-weight: 600; }
 .src a.def:hover { color: var(--kg-accent-strong); }
 
-/* kedgeree.js splits each signature row (.kg-srcrow) into the signature and a
-   links box pinned to the right with flexbox. */
+/* The Source / # links. wrapSourceLinks (Rewrite.hs) groups each declaration's
+   pair into a .kg-srclinks span, pinned to the top-right of the signature.
+   text-indent: 0 keeps the box itself out of the signature's hanging indent. */
 a.link, a.selflink {
   color: var(--kg-fg-faint);
   font-family: var(--kg-font);
@@ -568,39 +655,27 @@ a.link, a.selflink {
 }
 a.link:hover, a.selflink:hover { color: var(--kg-accent); text-decoration: none; }
 
-.src.kg-srcrow { display: flex; align-items: baseline; gap: 0.85rem; }
-/* Wrap long signatures at token boundaries rather than scrolling them, with a
-   hanging indent so continuation lines read as a continued signature. A lone
-   over-long identifier (no break point) still scrolls via overflow-x. */
-.kg-sig {
-  flex: 1 1 auto;
-  min-width: 0;
-  white-space: pre-wrap;
-  overflow-x: auto;
-  padding-left: 2ch;
-  text-indent: -2ch;
-}
 .kg-srclinks {
-  flex: 0 0 auto;
+  position: absolute;
+  top: 0.7rem;
+  right: 0.95rem;
   display: inline-flex;
   gap: 0.6rem;
-  align-items: baseline;
+  text-indent: 0;
 }
 .kg-srclinks a.selflink { opacity: 0; transition: opacity 0.12s; }
-.kg-srcrow:hover .kg-srclinks a.selflink { opacity: 1; }
+.top > .src:hover .kg-srclinks a.selflink { opacity: 1; }
 @media (hover: none) { .kg-srclinks a.selflink { opacity: 1; } }
 
-/* Until kedgeree.js wraps a row, float the links to the right edge so they
-   already sit where flex will place them — no jump on the first paint. */
-.src:not(.kg-srcrow) > a.link { float: right; margin-left: 0.6rem; }
-.src:not(.kg-srcrow) > a.selflink { float: right; margin-left: 0.6rem; opacity: 0; }
-
-/* Arrow-aligned multi-line signatures (formatLongSignatures inserts the breaks
-   before each top-level :: => ->). The explicit two-space indent on every
-   continuation line does the aligning, so drop the soft-wrap hanging indent the
-   .kg-sig otherwise carries, and make sure the breaks are honoured. */
+/* breakLongSigs (Rewrite.hs) breaks long signatures before each top-level arrow,
+   indenting continuations two columns inline. It marks any signature element it
+   breaks (<p>, <td>, <dfn>), which carries its own pre-wrap so the breaks render.
+   The explicit indent does the aligning, so drop the soft-wrap hanging indent. */
 .kg-multiline { white-space: pre-wrap; }
 .kg-multiline .kg-sig { padding-left: 0; text-indent: 0; }
+/* Keep "->" whole so a narrow viewport wraps at the spaces around it, never
+   between the hyphen and the angle bracket. */
+.kg-arr { white-space: nowrap; }
 
 /* ==========================================================================
    Sub-blocks: constructors, methods, instances
@@ -628,8 +703,8 @@ a.link:hover, a.selflink:hover { color: var(--kg-accent); text-decoration: none;
 .subs td.doc.empty { display: none; }
 
 /* Constructors stack at every width: signature on its own line (a code bar),
-   description on the line below. Their signatures are long, so the side-by-side
-   table layout squishes the prose — this reads far better. */
+   description below. Their signatures are long, so the side-by-side table layout
+   squishes the prose. This reads far better. */
 .subs.constructors table,
 .subs.constructors tbody,
 .subs.constructors tr,
@@ -657,7 +732,7 @@ a.link:hover, a.selflink:hover { color: var(--kg-accent); text-decoration: none;
   font-family: var(--kg-mono);
   /* The field type reads lighter than the field name: normal weight and muted,
      so the bold, full-colour name (the a.def, styled separately) leads while the
-     type recedes. <dfn> is italic by default, which is hard to read in mono. */
+     type recedes. <dfn> is italic by default, hard to read in mono. */
   font-weight: 400;
   font-style: normal;
   color: var(--kg-fg-muted);
@@ -672,10 +747,10 @@ a.link:hover, a.selflink:hover { color: var(--kg-accent); text-decoration: none;
 .subs.fields ul li > .doc p { margin: 0; }
 
 /* ==========================================================================
-   Instances — stacked accordion cards
+   Instances: stacked accordion cards
    Haddock renders each instance as a head row (its signature + doc + a toggle)
    followed by a detail row (a <details> it shows/hides). We box each instance:
-   the head is a rounded, clickable card; when open, the detail row joins it into
+   the head is a rounded, clickable card. When open, the detail row joins it into
    one box (squared corners between them). Nested rows inside the body (associated
    types, method panels) are reset flat so we never stack cards inside cards.
    Open/closed comes from Haddock's JS, which adds .collapser / .expander to the
@@ -690,7 +765,7 @@ h4.instances {
   padding: 0.3rem 0;
   user-select: none;
 }
-/* The native <summary> toggles are hide-when-js-enabled — only the no-JS path
+/* The native <summary> toggles are hide-when-js-enabled. Only the no-JS path
    sees them, where they ARE the disclosure control, so keep their native marker
    (we don't hide it). With JS they're display:none, replaced by the chevron. */
 
@@ -715,7 +790,7 @@ h4.instances {
   transition: border-color 0.12s ease, background-color 0.12s ease;
 }
 /* The header is the toggle only when JS runs (no-JS uses the native <summary>
-   inside the body), so the click affordances are gated on body.js-enabled. */
+   inside the body), so click affordances are gated on body.js-enabled. */
 body.js-enabled .instances tr:has(> td.src),
 body.js-enabled [id="section.orphans"] tr:has(> td.src) { cursor: pointer; }
 body.js-enabled .instances tr:has(> td.src):hover,
@@ -723,7 +798,7 @@ body.js-enabled [id="section.orphans"] tr:has(> td.src):hover {
   border-color: var(--kg-accent);
   background: var(--kg-accent-soft);
 }
-/* Accent the chevron on hover too, so the whole header clearly reads as a control. */
+/* Accent the chevron on hover too, so the header reads as a control. */
 body.js-enabled .instances tr:has(> td.src):hover .expander::before,
 body.js-enabled .instances tr:has(> td.src):hover .collapser::before,
 body.js-enabled [id="section.orphans"] tr:has(> td.src):hover .expander::before,
@@ -731,7 +806,7 @@ body.js-enabled [id="section.orphans"] tr:has(> td.src):hover .collapser::before
   background: var(--kg-accent);
 }
 /* (Direct-hover chevron accent is handled uniformly for every toggle near the
-   .expander/.collapser definition, so instance chevrons match the rest.) */
+   .expander/.collapser definition, so instance chevrons match.) */
 .instances td.src,
 [id="section.orphans"] td.src {
   background: none;
@@ -740,12 +815,12 @@ body.js-enabled [id="section.orphans"] tr:has(> td.src):hover .collapser::before
   padding: 0.55rem 0.75rem 0.55rem 0.85rem;
   font-size: 0.83rem;
 }
-/* (Chevron sizing/placement is unified at the .expander/.collapser definition —
-   the instance card chevron inherits it and so lines up with the card rail.) */
+/* (Chevron sizing/placement is unified at the .expander/.collapser definition.
+   The instance card chevron inherits it and so lines up with the card rail.) */
 /* The instance's own doc. Aligned to the card's content edge (the same left
    rail as the expanded body below it), not under the signature text, so a
-   card's doc, "Defined in" line and sub-sections all share one consistent
-   left edge across every instance. */
+   card's doc, "Defined in" line and sub-sections share one left edge across
+   every instance. */
 .instances td.doc,
 [id="section.orphans"] td.doc {
   padding: 0 0.85rem 0.55rem;
@@ -774,17 +849,19 @@ body.js-enabled [id="section.orphans"] tr:has(> td.src):hover .collapser::before
 }
 /* Hide a closed detail row only with JS (the chevron/header is the toggle then).
    Without JS the row stays put so its native <summary> toggle is reachable.
-   Scope to the direct details so a nested open child doesn't keep a closed
-   parent's empty box visible. */
-body.js-enabled .instances tr:has(> td[colspan]):not(:has(> td[colspan] > details[open])),
-body.js-enabled [id="section.orphans"] tr:has(> td[colspan]):not(:has(> td[colspan] > details[open])) {
+   Keyed on html[data-js] (boot stamps it before first paint), not the bundle's
+   late body.js-enabled. Otherwise the closed rows show then vanish, shrinking
+   the page and jolting everything below. Scope to the direct details so a nested
+   open child doesn't keep a closed parent's empty box visible. */
+html[data-js] .instances tr:has(> td[colspan]):not(:has(> td[colspan] > details[open])),
+html[data-js] [id="section.orphans"] tr:has(> td[colspan]):not(:has(> td[colspan] > details[open])) {
   display: none;
 }
 .instances td[colspan],
 [id="section.orphans"] td[colspan] { padding: 0.1rem 0.85rem 0.7rem; }
 /* Per-instance "Instance details" summary: hide-when-js-enabled, so its native
-   marker only shows under no-JS, where it is the disclosure control — kept. */
-/* "Defined in ..." provenance — quiet. */
+   marker only shows under no-JS, where it is the disclosure control. Kept. */
+/* "Defined in ..." provenance, quiet. */
 .instances td[colspan] > details > p,
 [id="section.orphans"] td[colspan] > details > p {
   margin: 0.4rem 0 0.5rem;
@@ -916,7 +993,7 @@ table.info th { font-weight: 600; color: var(--kg-fg-faint); }
 
 /* The "Instances" preferences dropdown (#preferences-menu): a buttons row plus
    two checkbox rows. Haddock hard-codes a light-blue panel with no internal
-   spacing — re-theme it and lay it out properly.
+   spacing. Re-theme it and lay it out properly.
    Structure:  .dropdown-menu > div > { div(2 buttons), div(checkbox+span)… } */
 .dropdown-menu {
   position: fixed;
@@ -968,8 +1045,8 @@ table.info th { font-weight: 600; color: var(--kg-fg-faint); }
 .dropdown-menu span { line-height: 1.35; cursor: pointer; }
 
 /* In-page contents box. Once kedgeree.js builds the sidebar this is hidden
-   (body.kg-has-sidebar), so it only ever shows in the no-JS fallback — style it
-   as a clean, intentional card rather than Haddock's raw bulleted list. */
+   (body.kg-has-sidebar), so it only shows in the no-JS fallback. Style it as a
+   clean, intentional card rather than Haddock's raw bulleted list. */
 #table-of-contents { margin: 1.25rem 0 1.75rem; }
 #contents-list {
   background: var(--kg-bg-sunken);
@@ -1022,7 +1099,7 @@ table.info th { font-weight: 600; color: var(--kg-fg-faint); }
 
 /* Per-argument documentation. Stack each argument: the type (a signature that
    can be long and would crowd a two-column table) on its own line as a code
-   bar, its description on the line below — far more readable than side by side.
+   bar, its description below. Far more readable than side by side.
    Mirrors the constructor/field treatment. */
 .subs.arguments table,
 .subs.arguments tbody,
@@ -1082,7 +1159,7 @@ table.info th { font-weight: 600; color: var(--kg-fg-faint); }
 }
 #module-list ul { list-style: none; margin: 0; padding-left: 0; }
 #module-list details > ul { padding-left: 1.3rem; }
-/* Newer Haddock wraps submodules in a <details> — keep it flush (and tame
+/* Newer Haddock wraps submodules in a <details>. Keep it flush (and tame
    Chrome's ::details-content wrapper) so a module's submodules don't open a
    vertical gap before the next top-level module. */
 #module-list details { margin: 0; padding: 0; }
@@ -1114,7 +1191,7 @@ table.info th { font-weight: 600; color: var(--kg-fg-faint); }
 .extension-list { margin: 0.4rem 0 0 1.2rem; }
 .extension-list li { font-family: var(--kg-mono); font-size: 0.85rem; }
 
-/* "Minimal complete definition" is class metadata, not a real declaration —
+/* "Minimal complete definition" is class metadata, not a real declaration.
    Haddock emits a caption + a .src list of methods. Render it as one quiet
    inline note instead of an uppercased caption stacked over a full code card.
    (#interface-scoped to outrank the generic .caption / .src rules.) */
@@ -1225,18 +1302,18 @@ pre::-webkit-scrollbar-thumb:hover {
 
 /* JS-built header actions + sidebar home. */
 .kg-actions { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
-/* Scoped under #kg-sidebar so it outranks `#kg-sidebar a` (an id selector) —
-   otherwise the flush padding-left below silently loses to it, and the λ pushes
+/* Scoped under #kg-sidebar so it outranks `#kg-sidebar a` (an id selector).
+   Otherwise the flush padding-left below silently loses to it, and the λ pushes
    the heading text in past the nav options. */
 #kg-sidebar .kg-sb-home {
   display: flex;
   align-items: center;
   /* Keep the heading content flush at the rail (so off-module headings sit one
      level out, not indented), but let the active/hover highlight reach a little
-     further left via the negative margin — absorbed by the sidebar's own
-     left padding — so the λ has breathing room from the highlight's edge rather
-     than touching it. The λ sits in a fixed-width box so the heading text lands
-     at a predictable spot, left of the nav options, whatever the glyph width. */
+     further left via the negative margin (absorbed by the sidebar's own left
+     padding), so the λ has breathing room from the highlight's edge rather than
+     touching it. The λ sits in a fixed-width box so the heading text lands at a
+     predictable spot, left of the nav options, whatever the glyph width. */
   margin: 0 0 0.5rem -0.4rem;
   padding-left: 0.4rem;
   color: var(--kg-fg);
@@ -1291,7 +1368,7 @@ pre::-webkit-scrollbar-thumb:hover {
   }
 
   /* The header's text nav is redundant on mobile (Contents/Index live in the
-     drawer + search), and it's what blows out the width — hide it. */
+     drawer + search), and it's what blows out the width. Hide it. */
   #package-header #page-menu { display: none; }
   #package-header { gap: 0.5rem; }
   .kg-actions { gap: 0.4rem; }

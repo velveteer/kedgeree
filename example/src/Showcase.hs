@@ -301,7 +301,7 @@ instance Describe Point where
 --
 -- @since 0.5.0
 class
-  (Eq a, Ord a, Show a, Read a, Enum a, Bounded a, Num a, Real a, Integral a) =>
+  (Bounded a, Enum a, Eq a, Integral a, Num a, Ord a, Read a, Real a, Show a) =>
   Tabulate a
   where
   -- | Render the value as a fixed-width table cell.
