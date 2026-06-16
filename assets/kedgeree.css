@@ -140,6 +140,15 @@ code, pre, .src, tt, .hs-identifier, .keyword {
   font-variant-ligatures: none;
 }
 
+/* Images and other media never overflow their column on a narrow screen. */
+img, svg, video, iframe { max-width: 100%; height: auto; }
+
+/* A lone over-long token (a 50-char identifier in prose, a bare URL) must wrap
+   rather than push the page wider than the viewport. Signatures and code blocks
+   keep their own horizontal scroll, so they opt out. */
+body { overflow-wrap: anywhere; }
+.src, .kg-sig, pre { overflow-wrap: normal; }
+
 ::selection { background: var(--kg-accent-soft); }
 
 /* ==========================================================================
@@ -409,6 +418,10 @@ body.kg-has-sidebar #table-of-contents { display: none; }
 #content {
   grid-area: main;
   width: 100%;
+  /* min-width: 0 lets this grid item shrink below its content's intrinsic width,
+     so wide code (example blocks, long signatures) scrolls inside its own box
+     instead of forcing the whole page wider than the viewport. */
+  min-width: 0;
   max-width: var(--kg-content-max);
   margin: 0 auto;
   padding: 2rem 1.5rem 4rem;
@@ -798,8 +811,12 @@ h4.instances {
    (we don't hide it). With JS they're display:none, replaced by the chevron. */
 
 /* Block-ify the table so rows can be card pieces. */
+/* display: block (not just on the rows/cells) so the table fills its column and
+   its cells wrap, rather than sizing to a long instance head and overflowing.
+   With table > tr and no explicit tbody, the anonymous row group keeps table
+   layout otherwise, and a wide instance pushes the whole page sideways. */
 .instances table,
-[id="section.orphans"] table { width: 100%; border-collapse: collapse; }
+[id="section.orphans"] table { display: block; width: 100%; border-collapse: collapse; }
 .instances tbody, .instances tr, .instances td,
 [id="section.orphans"] tbody,
 [id="section.orphans"] tr,
@@ -1250,7 +1267,7 @@ table.info th { font-weight: 600; color: var(--kg-fg-faint); }
 .doc dd { margin: 0 0 0.5em 1.5em; color: var(--kg-fg-muted); }
 
 /* Doc tables. */
-.doc table { border-collapse: collapse; margin: 0.8em 0; }
+.doc table { border-collapse: collapse; margin: 0.8em 0; display: block; max-width: 100%; overflow-x: auto; }
 .doc th, .doc td { border: 1px solid var(--kg-border); padding: 0.35rem 0.6rem; }
 .doc th { background: var(--kg-bg-sunken); }
 

@@ -443,7 +443,7 @@ breakLongSigs =
     -- so a lone over-long identifier scrolls rather than sliding under them.
     processSig inner =
       let (sig, links) = T.breakOn "<span class=\"kg-srclinks\">" inner
-          long = visibleLen sig > 68
+          long = visibleLen sig > 52
           sig' = highlight long sig
           out
             | T.null links = sig'
