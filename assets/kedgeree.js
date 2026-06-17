@@ -442,11 +442,10 @@
     footer.appendChild(span);
   }
 
-  /* Each declaration box doubles as its own anchor. A click anywhere that is not
-     a real hyperlink jumps to its #id, replacing the old # selflink (hidden via
-     CSS once JS is live). Type links and the Source link keep working, and a
-     drag to select text never navigates. Instances are skipped, their anchor
-     points at the class, not themselves. */
+  /* Each declaration box is its own anchor: a click that is not on a real
+     hyperlink jumps to its #id. Type links and the Source link still work, and a
+     drag to select text never navigates. Instances are skipped (their anchor
+     points at the class). */
   function wireSelfAnchors() {
     $$(".src").forEach(function (box) {
       if (box.closest(".instances")) return;
