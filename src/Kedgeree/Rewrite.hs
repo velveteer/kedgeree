@@ -330,7 +330,9 @@ instancesControl =
 -- | Wrap each declaration's trailing @Source@ / @#@ links in a
 -- @\<span class="kg-srclinks">@ so the stylesheet can pin them to the signature's
 -- top-right. Done server-side, so nothing jumps on first paint. @class="link"@
--- marks a Source link and, in Haddock's output, appears only on these.
+-- marks a Source link, @class="selflink"@ the @#@ permalink. A re-export has only
+-- the @#@ (its source lives in another package), so wrap that on its own too,
+-- rather than leave it bare and visible at the end of the signature.
 wrapSourceLinks :: Text -> Text
 wrapSourceLinks = T.concat . go
   where
@@ -339,11 +341,15 @@ wrapSourceLinks = T.concat . go
         | T.null post -> [before]
         | otherwise ->
             let (anchor, rest) = takeAnchor post
-             in if "class=\"link\"" `T.isInfixOf` openTag anchor
+                tag = openTag anchor
+             in if "class=\"link\"" `T.isInfixOf` tag
                   then
                     let (extra, rest') = takeSelflink rest
                      in before : "<span class=\"kg-srclinks\">" : anchor : extra : "</span>" : go rest'
-                  else before : anchor : go rest
+                  else
+                    if "class=\"selflink\"" `T.isInfixOf` tag
+                      then before : "<span class=\"kg-srclinks\">" : anchor : "</span>" : go rest
+                      else before : anchor : go rest
 
     -- An anchor element, up to and including its closing @</a>@.
     takeAnchor t = case T.breakOn "</a>" t of
@@ -438,45 +444,112 @@ breakLongSigs =
                   <> close
                   <> goElem open close (T.drop (T.length close) afterInner)
 
-    -- Highlight the signature (everything before the Source/# links), then for a
-    -- long one move it into a scrollable .kg-sig (only the <p> decls carry links)
-    -- so a lone over-long identifier scrolls rather than sliding under them.
+    -- Highlight the signature (everything before the Source/# links). When it has
+    -- links (the <p> decls), emit them first so CSS can float them to the
+    -- top-right, then wrap the signature in .kg-sig, which flows around the float:
+    -- the first line makes room, every line below reclaims the full width.
     processSig inner =
       let (sig, links) = T.breakOn "<span class=\"kg-srclinks\">" inner
+          hasLinks = not (T.null links)
           long = visibleLen sig > 52
-          sig' = highlight long sig
+          sig' = highlight long hasLinks sig
           out
-            | T.null links = sig'
-            | otherwise = "<span class=\"kg-sig\">" <> sig' <> "</span>" <> links
+            | hasLinks = links <> "<span class=\"kg-sig\">" <> sig' <> "</span>"
+            | otherwise = sig'
        in (out, long)
 
     -- Scan the signature HTML, skipping tags and tracking bracket depth in text.
-    -- Wrap every @::@ @->@ @=>@ operator in a colored, non-breaking span (the type
-    -- references are already links, keywords already classed, so this completes
-    -- the syntax coloring and keeps @->@ from splitting across a soft-wrap). For a
-    -- long signature, also start a fresh two-column-indented line before each
-    -- top-level operator. Operators carry their @>@ as the @&gt;@ entity.
-    highlight long = T.pack . scan (0 :: Int) False . T.unpack
+    -- Wrap every @::@ @->@ @=>@ operator in a colored, non-breaking span (this
+    -- completes the syntax coloring and keeps @->@ whole). Wrap each top-level
+    -- parenthesized group in a non-breaking @kg-grp@ span, so a soft-wrap falls
+    -- between groups, never inside a binder like @(b :: k2)@. For a long
+    -- signature, also start a fresh line before each top-level operator. A kg-sig
+    -- decl breaks with a bare newline and keeps .kg-sig's hanging indent, so a
+    -- too-long broken line soft-wraps in line with the operators, not back to the
+    -- margin. Other elements use an explicit two-space indent. Operators carry
+    -- their @>@ as the @&gt;@ entity.
+    -- grpW threads whether the enclosing top-level group is a kept (kg-grp) one,
+    -- so its closing bracket emits the matching </span>.
+    highlight long wrapped = T.pack . scan (0 :: Int) False False . T.unpack
       where
-        scan _ _ [] = []
-        scan depth seen ('<' : cs) =
+        scan _ _ _ [] = []
+        scan depth seen grpW ('<' : cs) =
           let (tag, rest) = break (== '>') cs
            in case rest of
-                ('>' : rest') -> '<' : tag ++ '>' : scan depth seen rest'
+                ('>' : rest') -> '<' : tag ++ '>' : scan depth seen grpW rest'
                 _ -> '<' : tag
-        scan depth seen s@(c : cs)
-          | c == '(' || c == '[' = c : scan (depth + 1) True cs
-          | c == ')' || c == ']' = c : scan (max 0 (depth - 1)) True cs
+        scan depth seen grpW s@(c : cs)
+          -- A top-level group with no comma at its own level AND short enough (a
+          -- binder, a function type like @(i -> a -> f b)@) is kept whole in a
+          -- non-breaking span, so only top-level arrows ever break. A comma group
+          -- (a tuple, a constraint context) or an over-long one is left to wrap, so
+          -- it cannot push the page wider than the viewport.
+          | (c == '(' || c == '[')
+          , depth == 0 =
+              let keep = not (groupHasComma cs) && groupShort 30 cs
+               in (if keep then "<span class=\"kg-grp\">" else "")
+                    ++ c
+                    : scan 1 True keep cs
+          | c == '(' || c == '[' = c : scan (depth + 1) True grpW cs
+          | c == ')' || c == ']' =
+              let d = max 0 (depth - 1)
+               in if d == 0
+                    then c : (if grpW then "</span>" else "") ++ scan 0 True False cs
+                    else c : scan d True grpW cs
+          -- Break onto a fresh two-column-indented line before each TOP-LEVEL
+          -- operator. Nested operators (inside a group) are colored but never
+          -- broken, so a function type stays on one line.
           | Just (op, rest) <- opAt s =
-              let brk = if long && depth == 0 && seen then "\n  " else ""
-               in brk ++ "<span class=\"kg-op\">" ++ op ++ "</span>" ++ scan depth True rest
-          | c == ' ' || c == '\t' || c == '\n' = c : scan depth seen cs
-          | otherwise = c : scan depth True cs
+              let brk
+                    | not (long && depth == 0 && seen) = ""
+                    | wrapped = "\n"
+                    | otherwise = "\n  "
+               in brk ++ "<span class=\"kg-op\">" ++ op ++ "</span>" ++ scan depth True grpW rest
+          -- Break AFTER a top-level forall dot or a type-synonym equals, so the
+          -- quantifier or LHS sits on its own line and the body or RHS starts
+          -- fresh. A top-level ". " is the forall terminator and "= " the synonym
+          -- definition. "=>" is an operator, caught by the case above. Qualified
+          -- names are links, not bare text.
+          | depth == 0
+          , c == '.' || c == '='
+          , long
+          , seen
+          , (' ' : _) <- cs =
+              let brk = if wrapped then "\n" else "\n  "
+               in c : brk ++ scan 0 True grpW (dropWhile (== ' ') cs)
+          | c == ' ' || c == '\t' || c == '\n' = c : scan depth seen grpW cs
+          | otherwise = c : scan depth True grpW cs
+
         opAt s
           | "::" `isPrefixOf` s = Just ("::", drop 2 s)
           | "-&gt;" `isPrefixOf` s = Just ("-&gt;", drop 5 s)
           | "=&gt;" `isPrefixOf` s = Just ("=&gt;", drop 5 s)
           | otherwise = Nothing
+
+        -- Does the group opened just before @s@ contain a comma at its own bracket
+        -- level, before it closes?
+        groupHasComma = go (0 :: Int)
+          where
+            go _ [] = False
+            go d ('<' : t) = go d (drop 1 (dropWhile (/= '>') t))
+            go d (x : xs)
+              | x == '(' || x == '[' = go (d + 1) xs
+              | x == ')' || x == ']' = d /= 0 && go (d - 1) xs
+              | d == 0 && x == ',' = True
+              | otherwise = go d xs
+
+        -- Is the group opened just before @s@ at most @lim@ characters long, up to
+        -- its own closing bracket? Tags are skipped, an entity counts as one.
+        groupShort lim = go (0 :: Int) (0 :: Int)
+          where
+            go _ n _ | n > lim = False
+            go _ _ [] = True
+            go d n ('<' : t) = go d n (drop 1 (dropWhile (/= '>') t))
+            go d n ('&' : t) = go d (n + 1) (drop 1 (dropWhile (/= ';') t))
+            go d n (x : xs)
+              | x == '(' || x == '[' = go (d + 1) (n + 1) xs
+              | x == ')' || x == ']' = d == 0 || go (d - 1) (n + 1) xs
+              | otherwise = go d (n + 1) xs
 
     -- Visible (rendered) length: tags dropped, the few entities we care about decoded.
     visibleLen = T.length . decode . stripTags

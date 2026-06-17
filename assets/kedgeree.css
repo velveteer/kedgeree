@@ -137,17 +137,20 @@ a:hover, a[href]:hover { text-decoration: underline; }
 
 code, pre, .src, tt, .hs-identifier, .keyword {
   font-family: var(--kg-mono);
-  font-variant-ligatures: none;
 }
+/* Signatures keep operators literal (no -> ligature). Prose code blocks keep the
+   font's ligatures, matching the hyperlinked source pages. */
+.src, .hs-identifier, .keyword { font-variant-ligatures: none; }
 
 /* Images and other media never overflow their column on a narrow screen. */
 img, svg, video, iframe { max-width: 100%; height: auto; }
 
 /* A lone over-long token (a 50-char identifier in prose, a bare URL) must wrap
-   rather than push the page wider than the viewport. Signatures and code blocks
-   keep their own horizontal scroll, so they opt out. */
+   rather than push the page wider than the viewport. Code blocks and the
+   scrolling sub-block signatures keep their own horizontal scroll, so they opt
+   out. (.kg-sig breaks instead, see its rule.) */
 body { overflow-wrap: anywhere; }
-.src, .kg-sig, pre { overflow-wrap: normal; }
+.src, pre { overflow-wrap: normal; }
 
 ::selection { background: var(--kg-accent-soft); }
 
@@ -515,7 +518,11 @@ pre {
   line-height: 1.5;
   font-size: 0.875rem;
 }
-pre code { background: none; border: none; padding: 0; }
+/* Reset inline-code styling inside a code block. Without the .doc prefix this
+   loses to .doc code on specificity, leaving the boxed, shrunken code that breaks
+   the monospace grid the author aligned arrows to. font-size goes back to the
+   block's so every glyph shares one cell width. */
+.doc pre code, pre code { background: none; border: none; padding: 0; font-size: inherit; }
 
 /* Interactive examples. Haddock renders >>> blocks as <pre class="screen">,
    with each input as <code class="prompt">&gt;&gt;&gt;</code><strong
@@ -573,20 +580,17 @@ td.src,
 .top > .src {
   position: relative;
   box-shadow: 0 1px 2px var(--kg-shadow);
-  /* overflow is visible so the absolutely-positioned Source/# links can show.
-     padding-right reserves their column. The signature itself lives in .kg-sig,
-     which carries the wrapping and its own scroll. */
   overflow: visible;
-  padding-right: 5rem;
 }
-/* The scrollable signature inside a top-level declaration, kept clear of the
-   pinned Source/# links. Wraps at whitespace (the spaces around :: => ->) with a
-   hanging indent. A lone over-long identifier scrolls here rather than sliding
-   under the links. */
+/* The signature inside a top-level declaration. It is a block, but does NOT
+   establish a block formatting context (no overflow:auto), so its text flows
+   around the floated Source/# box: the first line makes room, every line below
+   reclaims the full width. Wraps at whitespace with a hanging indent. A lone
+   over-long identifier breaks rather than forcing a horizontal scroll. */
 .kg-sig {
   display: block;
   white-space: pre-wrap;
-  overflow-x: auto;
+  overflow-wrap: anywhere;
   padding-left: 2ch;
   text-indent: -2ch;
 }
@@ -685,28 +689,37 @@ a.link, a.selflink {
 }
 a.link:hover, a.selflink:hover { color: var(--kg-accent); text-decoration: none; }
 
+/* Floated to the top-right (emitted before the signature, see processSig). The
+   signature flows around it, so only the first line yields the space and the
+   lines below run the full width. */
 .kg-srclinks {
-  position: absolute;
-  top: 0.7rem;
-  right: 0.95rem;
-  display: inline-flex;
+  float: right;
+  display: flex;
   gap: 0.6rem;
+  margin-left: 0.85rem;
   text-indent: 0;
 }
 .kg-srclinks a.selflink { opacity: 0; transition: opacity 0.12s; }
-.top > .src:hover .kg-srclinks a.selflink { opacity: 1; }
+/* Reveal the # on hover of any signature carrying it (a top-level decl OR a
+   typeclass method, which is a .subs p.src, not a .top child). */
+.src:hover .kg-srclinks a.selflink { opacity: 1; }
 @media (hover: none) { .kg-srclinks a.selflink { opacity: 1; } }
 
-/* breakLongSigs (Rewrite.hs) breaks long signatures before each top-level arrow,
-   indenting continuations two columns inline. It marks any signature element it
-   breaks (<p>, <td>, <dfn>), which carries its own pre-wrap so the breaks render.
-   The explicit indent does the aligning, so drop the soft-wrap hanging indent. */
+/* breakLongSigs (Rewrite.hs) breaks long signatures before each top-level
+   operator. It marks the element it breaks (<p>, <td>, <dfn>), which needs
+   pre-wrap so the breaks render. A <p> decl breaks with a bare newline and keeps
+   .kg-sig's hanging indent, so a too-long broken line soft-wraps in line with the
+   operators rather than back to the margin. Other elements use an explicit
+   two-space indent. */
 .kg-multiline { white-space: pre-wrap; }
-.kg-multiline .kg-sig { padding-left: 0; text-indent: 0; }
 /* The :: -> => operators (wrapped server-side by breakLongSigs). Colored to
    complete the signature syntax highlighting, and kept whole so a narrow viewport
    wraps at the spaces around them, never between a hyphen and its angle bracket. */
 .kg-op { color: var(--kg-syn-operator); white-space: nowrap; }
+/* A parenthesized group (a binder like (b :: k2), a tuple, a constraint context)
+   stays whole, so a long signature soft-wraps between groups rather than inside
+   one. An over-wide group scrolls with the rest of .kg-sig. */
+.kg-grp { white-space: nowrap; }
 
 /* ==========================================================================
    Sub-blocks: constructors, methods, instances
@@ -798,14 +811,33 @@ a.link:hover, a.selflink:hover { color: var(--kg-accent); text-decoration: none;
    toggle and toggles [open] on the detail <details>.
    ========================================================================== */
 .subs.instances { margin-top: 1rem; }
-h4.instances {
-  font-size: 0.85rem;
+/* Collapsible section headers (Examples, Instances, any sub-heading Haddock
+   makes a details-toggle). One look for all of them. A full-width bar with the
+   chevron reads as a clear, consistent expand/collapse affordance rather than
+   plain bold text. */
+h4.details-toggle-control {
+  display: block;
+  font-size: 0.9rem;
   font-weight: 700;
+  color: var(--kg-fg);
+  margin: 1.2rem 0 0.6rem;
+  padding: 0.5rem 0.7rem;
+  background: var(--kg-bg-raised);
+  border: 1px solid var(--kg-border);
+  border-radius: var(--kg-radius-s);
   cursor: pointer;
-  color: var(--kg-fg-muted);
-  padding: 0.3rem 0;
   user-select: none;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
 }
+h4.details-toggle-control:hover {
+  color: var(--kg-fg);
+  border-color: var(--kg-accent);
+  background: var(--kg-accent-soft);
+}
+/* Ink the chevron a touch brighter than the faint default so the bar reads as
+   actionable. Hover still accents it via the shared toggle rule. */
+h4.details-toggle-control.expander::before,
+h4.details-toggle-control.collapser::before { background-color: var(--kg-fg-muted); }
 /* The native <summary> toggles are hide-when-js-enabled. Only the no-JS path
    sees them, where they ARE the disclosure control, so keep their native marker
    (we don't hide it). With JS they're display:none, replaced by the chevron. */
