@@ -442,6 +442,29 @@
     footer.appendChild(span);
   }
 
+  /* Each declaration box doubles as its own anchor. A click anywhere that is not
+     a real hyperlink jumps to its #id, replacing the old # selflink (hidden via
+     CSS once JS is live). Type links and the Source link keep working, and a
+     drag to select text never navigates. Instances are skipped, their anchor
+     points at the class, not themselves. */
+  function wireSelfAnchors() {
+    $$(".src").forEach(function (box) {
+      if (box.closest(".instances")) return;
+      if (box.closest('[id="section.orphans"]')) return;
+      var sl = box.querySelector(".kg-srclinks a.selflink");
+      var def = box.querySelector(".def[id]");
+      var hash = (sl && sl.getAttribute("href")) ||
+        (def && def.id ? "#" + def.id : "");
+      if (!hash || hash === "#") return;
+      box.classList.add("kg-anchorable");
+      box.addEventListener("click", function (e) {
+        if (e.target.closest("a[href]")) return;
+        if (window.getSelection && String(window.getSelection())) return;
+        location.hash = hash;
+      });
+    });
+  }
+
   // Landing page (kedgeree --landing): just add the theme toggle. The Haddock
   // passes above all no-op on it.
   function enhanceLanding() {
@@ -461,6 +484,7 @@
     buildSidebar();
     enlargeInstanceToggles();
     enhanceSource();
+    wireSelfAnchors();
     enhanceFooter();
 
     // Dismiss the mobile drawer when tapping outside it.

@@ -461,7 +461,17 @@ body.kg-has-sidebar #table-of-contents { display: none; }
   letter-spacing: -0.01em;
   margin: 2.5rem 0 0.5rem;
   padding-bottom: 0.4rem;
-  border-bottom: 1px solid var(--kg-border);
+  /* A rule that starts defined under the heading and fades out to the right,
+     softer than a hard full-width line. */
+  background-image: linear-gradient(
+    to right,
+    var(--kg-border-strong),
+    var(--kg-border) 30%,
+    transparent 85%
+  );
+  background-repeat: no-repeat;
+  background-position: left bottom;
+  background-size: 100% 1px;
   scroll-margin-top: calc(var(--kg-header-h) + 1rem);
 }
 #interface a:hover h1 { text-decoration: none; }
@@ -556,9 +566,27 @@ blockquote {
 /* ==========================================================================
    Declarations (the .top / .src signature blocks)
    ========================================================================== */
+/* A muted left rail with a small indent groups the signature, its doc and any
+   sub-items into one readable declaration block, the way Haddock rails its doc
+   text. The rail does the grouping, so the doc sits below its signature in the
+   usual reading order (name first, prose second) and the Source tag hanging off
+   the signature no longer drifts the doc toward the next declaration. */
 .top {
+  display: flex;
+  flex-direction: column;
   margin: 1.5rem 0;
-  padding: 0;
+  padding: 0.1rem 0 0.1rem 1rem;
+  /* The rail as a 2px vertical gradient: defined at the top, fading softer
+     toward the bottom, prettier than a flat full-height line. */
+  background-image: linear-gradient(
+    to bottom,
+    var(--kg-border-strong),
+    var(--kg-border) 55%,
+    transparent
+  );
+  background-size: 2px 100%;
+  background-repeat: no-repeat;
+  background-position: left top;
   scroll-margin-top: calc(var(--kg-header-h) + 1rem);
 }
 
@@ -582,11 +610,11 @@ td.src,
   box-shadow: 0 1px 2px var(--kg-shadow);
   overflow: visible;
 }
-/* The signature inside a top-level declaration. It is a block, but does NOT
-   establish a block formatting context (no overflow:auto), so its text flows
-   around the floated Source/# box: the first line makes room, every line below
-   reclaims the full width. Wraps at whitespace with a hanging indent. A lone
-   over-long identifier breaks rather than forcing a horizontal scroll. */
+/* The signature inside a declaration. A block that uses the full box width and
+   wraps at whitespace with a hanging indent, so a soft-wrapped line lines up
+   under the first token. The Source/# tag hangs off the box corner (out of
+   flow), so it steals no width here. A lone over-long identifier breaks rather
+   than forcing a horizontal scroll. */
 .kg-sig {
   display: block;
   white-space: pre-wrap;
@@ -689,21 +717,57 @@ a.link, a.selflink {
 }
 a.link:hover, a.selflink:hover { color: var(--kg-accent); text-decoration: none; }
 
-/* Floated to the top-right (emitted before the signature, see processSig). The
-   signature flows around it, so only the first line yields the space and the
-   lines below run the full width. */
-.kg-srclinks {
-  float: right;
-  display: flex;
-  gap: 0.6rem;
-  margin-left: 0.85rem;
-  text-indent: 0;
+/* The Source / # pair hangs off the bottom-right corner of the box as a little
+   tag, straddling the border so it sits outside the box and steals neither a
+   line nor any width from the signature. The carrying box turns relative and
+   drops overflow clipping so the tag can spill past the edge. */
+.src:has(> .kg-srclinks) {
+  position: relative;
+  overflow: visible;
 }
+.kg-srclinks {
+  position: absolute;
+  right: 0.7rem;
+  bottom: 0;
+  transform: translateY(70%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.05rem 0.55rem;
+  background: var(--kg-bg-raised);
+  border: 1px solid var(--kg-border);
+  border-radius: 999px;
+  box-shadow: 0 1px 2px var(--kg-shadow);
+  text-indent: 0;
+  z-index: 3;
+}
+/* The tag dips below the box, so following prose needs a little clearance.
+   Top-level decls and methods put their doc right after the box (a sibling),
+   instances carry the doc in a separate row (see .instances td.doc). */
+/* A p.src doc (or its sub-items, when undocumented) sits below the signature and
+   needs clearance under the tag hanging off it. Scoped to p.src so instance heads
+   (td.src, whose tag sits at the card's bottom edge) are excluded. */
+p.src:has(> .kg-srclinks) + .doc,
+p.src:has(> .kg-srclinks) + .subs { margin-top: 1.4rem; }
 .kg-srclinks a.selflink { opacity: 0; transition: opacity 0.12s; }
 /* Reveal the # on hover of any signature carrying it (a top-level decl OR a
    typeclass method, which is a .subs p.src, not a .top child). */
 .src:hover .kg-srclinks a.selflink { opacity: 1; }
 @media (hover: none) { .kg-srclinks a.selflink { opacity: 1; } }
+/* JS makes each box its own anchor (see wireSelfAnchors), so the # glyph is
+   redundant. Hide it from first paint when JS is live, and show the box as
+   clickable. No-JS keeps the hover-revealed # above as the fallback. */
+html[data-js] .kg-srclinks a.selflink { display: none; }
+html[data-js] .src.kg-anchorable { cursor: pointer; }
+/* Inside an instance the links are redundant. Every # points at the class
+   anchor (the same place for every instance), and a method's Source points at
+   the class method already on the page. Drop both: hide every # here, and hide
+   the method tags in the expanded body. The head keeps its Source, which is the
+   one useful link, the instance's own definition. */
+.instances .kg-srclinks a.selflink,
+[id="section.orphans"] .kg-srclinks a.selflink { display: none; }
+.instances td[colspan] .kg-srclinks,
+[id="section.orphans"] td[colspan] .kg-srclinks { display: none; }
 
 /* breakLongSigs (Rewrite.hs) breaks long signatures before each top-level
    operator. It marks the element it breaks (<p>, <td>, <dfn>), which needs
@@ -858,14 +922,22 @@ h4.details-toggle-control.collapser::before { background-color: var(--kg-fg-mute
 .inst-left { display: inline; }
 
 /* Head row = the accordion header (a rounded card top). */
+/* The card is the header row: head then its doc, natural order. Make the card the
+   positioning context (and keep the head cell static) so the Source tag, which
+   lives in the head cell, hangs off the card's bottom-right edge below the doc,
+   not mid-card off the head. */
 .instances tr:has(> td.src),
 [id="section.orphans"] tr:has(> td.src) {
-  margin-top: 0.4rem;
+  position: relative;
+  overflow: visible;
+  margin-top: 1.2rem;
   border: 1px solid var(--kg-border);
   border-radius: var(--kg-radius-s);
   background: var(--kg-bg-raised);
   transition: border-color 0.12s ease, background-color 0.12s ease;
 }
+.instances td.src:has(> .kg-srclinks),
+[id="section.orphans"] td.src:has(> .kg-srclinks) { position: static; }
 /* The header is the toggle only when JS runs (no-JS uses the native <summary>
    inside the body), so click affordances are gated on body.js-enabled. */
 body.js-enabled .instances tr:has(> td.src),
@@ -889,6 +961,7 @@ body.js-enabled [id="section.orphans"] tr:has(> td.src):hover .collapser::before
   background: none;
   border: none;
   border-radius: 0;
+  box-shadow: none;
   padding: 0.55rem 0.75rem 0.55rem 0.85rem;
   font-size: 0.83rem;
 }
@@ -898,9 +971,11 @@ body.js-enabled [id="section.orphans"] tr:has(> td.src):hover .collapser::before
    rail as the expanded body below it), not under the signature text, so a
    card's doc, "Defined in" line and sub-sections share one left edge across
    every instance. */
+/* Below the head: a small gap above (down from the head) and bottom room for the
+   Source tag hanging off the card's bottom edge. */
 .instances td.doc,
 [id="section.orphans"] td.doc {
-  padding: 0 0.85rem 0.55rem;
+  padding: 0.1rem 0.85rem 0.9rem;
   color: var(--kg-fg-muted);
   font-size: 0.85rem;
 }
@@ -935,7 +1010,7 @@ html[data-js] [id="section.orphans"] tr:has(> td[colspan]):not(:has(> td[colspan
   display: none;
 }
 .instances td[colspan],
-[id="section.orphans"] td[colspan] { padding: 0.1rem 0.85rem 0.7rem; }
+[id="section.orphans"] td[colspan] { padding: 1.1rem 0.85rem 0.7rem; }
 /* Per-instance "Instance details" summary: hide-when-js-enabled, so its native
    marker only shows under no-JS, where it is the disclosure control. Kept. */
 /* "Defined in ..." provenance, quiet. */
@@ -1493,6 +1568,10 @@ pre::-webkit-scrollbar-thumb:hover {
 
   .instances table { table-layout: auto; }
   .instances td[colspan] .subs.methods { padding: 0.5rem 0.6rem; }
+
+  /* Drop the grouping rail on narrow screens: declarations stack tightly enough
+     to read as units, and the rail + indent only eats horizontal space here. */
+  .top { background-image: none; padding-left: 0; }
 }
 
 @media (max-width: 34rem) {

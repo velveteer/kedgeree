@@ -452,7 +452,7 @@ breakLongSigs =
       let (sig, links) = T.breakOn "<span class=\"kg-srclinks\">" inner
           hasLinks = not (T.null links)
           long = visibleLen sig > 52
-          sig' = highlight long hasLinks sig
+          sig' = highlight long (forallLong sig) hasLinks sig
           out
             | hasLinks = links <> "<span class=\"kg-sig\">" <> sig' <> "</span>"
             | otherwise = sig'
@@ -470,7 +470,7 @@ breakLongSigs =
     -- their @>@ as the @&gt;@ entity.
     -- grpW threads whether the enclosing top-level group is a kept (kg-grp) one,
     -- so its closing bracket emits the matching </span>.
-    highlight long wrapped = T.pack . scan (0 :: Int) False False . T.unpack
+    highlight long breakForall wrapped = T.pack . scan (0 :: Int) False False . T.unpack
       where
         scan _ _ _ [] = []
         scan depth seen grpW ('<' : cs) =
@@ -507,11 +507,21 @@ breakLongSigs =
                in brk ++ "<span class=\"kg-op\">" ++ op ++ "</span>" ++ scan depth True grpW rest
           -- Break AFTER a top-level forall dot or a type-synonym equals, so the
           -- quantifier or LHS sits on its own line and the body or RHS starts
-          -- fresh. A top-level ". " is the forall terminator and "= " the synonym
-          -- definition. "=>" is an operator, caught by the case above. Qualified
-          -- names are links, not bare text.
+          -- fresh. The forall break is gated on forallLong, so a short quantifier
+          -- like "forall a." stays inline with its body rather than breaking
+          -- prematurely. A top-level ". " is the forall terminator and "= " the
+          -- synonym definition. "=>" is an operator, caught by the case above.
+          -- Qualified names are links, not bare text.
           | depth == 0
-          , c == '.' || c == '='
+          , c == '.'
+          , long
+          , breakForall
+          , seen
+          , (' ' : _) <- cs =
+              let brk = if wrapped then "\n" else "\n  "
+               in c : brk ++ scan 0 True grpW (dropWhile (== ' ') cs)
+          | depth == 0
+          , c == '='
           , long
           , seen
           , (' ' : _) <- cs =
@@ -550,6 +560,21 @@ breakLongSigs =
               | x == '(' || x == '[' = go (d + 1) (n + 1) xs
               | x == ')' || x == ']' = d == 0 || go (d - 1) (n + 1) xs
               | otherwise = go d (n + 1) xs
+
+    -- A forall whose quantifier (everything from @forall@ up to its top-level
+    -- terminating ". ") is long enough to deserve its own line. A short one like
+    -- @forall a.@ stays inline with the body, so it does not break prematurely.
+    forallLong sig = case T.breakOn "forall" (decode (stripTags sig)) of
+      (_, rest)
+        | T.null rest -> False
+        | otherwise -> clause (0 :: Int) (0 :: Int) (T.unpack rest) > 24
+      where
+        clause _ n [] = n
+        clause d n ('.' : ' ' : _) | d == 0 = n
+        clause d n (x : xs)
+          | x == '(' || x == '[' = clause (d + 1) (n + 1) xs
+          | x == ')' || x == ']' = clause (max 0 (d - 1)) (n + 1) xs
+          | otherwise = clause d (n + 1) xs
 
     -- Visible (rendered) length: tags dropped, the few entities we care about decoded.
     visibleLen = T.length . decode . stripTags

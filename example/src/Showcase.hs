@@ -147,8 +147,8 @@ defaultConfig =
     }
 
 -- | A function with an absurdly long name and a long, multi-constraint type
--- signature that will almost certainly need to scroll horizontally on a narrow
--- screen.
+-- signature. On a narrow screen the name breaks and the signature wraps at its
+-- arrows rather than scrolling.
 --
 -- @since 2.1.0
 reallyLongFunctionNameThatGoesOnForQuiteAWhile
@@ -194,7 +194,7 @@ withLongArgumentTypes
   -- ^ the configuration record to apply before running
   -> (Int -> Either String (Maybe [(String, String)]))
   -- ^ a callback with a long, deeply nested type whose rendering would
-  -- otherwise push the per-argument description off the side of the page
+  -- otherwise crowd the per-argument description into a sliver
   -> [(String, Int -> IO ())]
   -- ^ an association list mapping names to effectful, integer-taking callbacks
   -> IO ()
