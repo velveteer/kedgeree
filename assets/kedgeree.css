@@ -497,6 +497,13 @@ p { margin: 0.7em 0; }
 .doc p { margin: 0.6em 0; }
 .doc strong { font-weight: 700; }
 .doc code, .doc a { overflow-wrap: anywhere; }
+/* The column is wide for code; keep doc prose at a readable measure. Code blocks
+   and tables inside docs keep the full width. */
+.doc p,
+.doc ul,
+.doc ol,
+.doc dl,
+.doc blockquote { max-width: var(--kg-prose-max); }
 
 /* Documentation lists (the reset clears list defaults). */
 .doc ul, .doc ol { margin: 0.6em 0; padding-left: 1.6rem; }
@@ -740,7 +747,15 @@ a.link:hover, a.selflink:hover { color: var(--kg-accent); text-decoration: none;
   box-shadow: 0 1px 2px var(--kg-shadow);
   text-indent: 0;
   z-index: 3;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
 }
+/* Solid background change on hover (the pill straddles two surfaces, so a
+   translucent fill would show both through it). No movement. */
+.kg-srclinks:hover {
+  background: var(--kg-border-strong);
+  border-color: var(--kg-accent);
+}
+.kg-srclinks:hover a.link { color: var(--kg-accent); }
 /* The tag dips below the box, so following prose needs a little clearance.
    Top-level decls and methods put their doc right after the box (a sibling),
    instances carry the doc in a separate row (see .instances td.doc). */
@@ -759,6 +774,10 @@ p.src:has(> .kg-srclinks) + .subs { margin-top: 1.4rem; }
    clickable. No-JS keeps the hover-revealed # above as the fallback. */
 html[data-js] .kg-srclinks a.selflink { display: none; }
 html[data-js] .src.kg-anchorable { cursor: pointer; }
+/* A re-export carries only a # selflink and no Source. With the # hidden, that
+   pill would be empty, so drop it entirely when there is no Source link in it.
+   The box is still its own anchor (wireSelfAnchors reads the hidden selflink). */
+.kg-srclinks:not(:has(a.link)) { display: none; }
 /* Inside an instance the links are redundant. Every # points at the class
    anchor (the same place for every instance), and a method's Source points at
    the class method already on the page. Drop both: hide every # here, and hide

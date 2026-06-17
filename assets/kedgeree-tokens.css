@@ -59,7 +59,10 @@
 
   --kg-sidebar-w: 17rem;
   --kg-header-h:  3.25rem;
-  --kg-content-max: 52rem;
+  --kg-content-max: 60rem;
+  /* Prose is capped tighter than the column so code boxes get the extra width
+     while descriptions stay at a readable measure. */
+  --kg-prose-max: 46rem;
 
   --kg-font: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
     Roboto, "Helvetica Neue", Arial, sans-serif;
