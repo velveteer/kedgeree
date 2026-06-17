@@ -345,7 +345,16 @@ wrapSourceLinks = T.concat . go
              in if "class=\"link\"" `T.isInfixOf` tag
                   then
                     let (extra, rest') = takeSelflink rest
-                     in before : "<span class=\"kg-srclinks\">" : anchor : extra : "</span>" : go rest'
+                        -- The link renders as a bare icon, so give it a tooltip.
+                        -- Guarded so a re-theme does not add a second title.
+                        anchor'
+                          | "title=" `T.isInfixOf` anchor = anchor
+                          | otherwise =
+                              T.replace
+                                "class=\"link\""
+                                "class=\"link\" title=\"Source\""
+                                anchor
+                     in before : "<span class=\"kg-srclinks\">" : anchor' : extra : "</span>" : go rest'
                   else
                     if "class=\"selflink\"" `T.isInfixOf` tag
                       then before : "<span class=\"kg-srclinks\">" : anchor : "</span>" : go rest

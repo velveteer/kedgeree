@@ -88,6 +88,8 @@ body.js-enabled h4.details-toggle-control:hover { color: var(--kg-fg); }
      ink and it recolours on hover). */
   --kg-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 14' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.6 2 6.2 7 1.6 12'/%3E%3C/svg%3E");
   --kg-chevron-open: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 8' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 1.6 7 6.2 12 1.6'/%3E%3C/svg%3E");
+  /* Code "&lt;/&gt;" glyph for the Source link (mask-image, inked by currentColor). */
+  --kg-icon-source: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 6L2 12L8 18'/%3E%3Cpath d='M16 6L22 12L16 18'/%3E%3C/svg%3E");
 }
 html[data-resolved="dark"] { color-scheme: dark; }
 @media (prefers-color-scheme: dark) {
@@ -573,29 +575,19 @@ blockquote {
 /* ==========================================================================
    Declarations (the .top / .src signature blocks)
    ========================================================================== */
-/* A muted left rail with a small indent groups the signature, its doc and any
-   sub-items into one readable declaration block, the way Haddock rails its doc
-   text. The rail does the grouping, so the doc sits below its signature in the
-   usual reading order (name first, prose second) and the Source tag hanging off
-   the signature no longer drifts the doc toward the next declaration. */
+/* De-boxed declarations (rustdoc style): the signature sits flush at the left
+   edge with no card framing, its doc and sub-items below, and consecutive
+   declarations are parted by a divider rule. The container is the positioning
+   context for the Source link, which floats to the top-right. */
 .top {
   display: flex;
   flex-direction: column;
-  margin: 1.5rem 0;
-  padding: 0.1rem 0 0.1rem 1rem;
-  /* The rail as a 2px vertical gradient: defined at the top, fading softer
-     toward the bottom, prettier than a flat full-height line. */
-  background-image: linear-gradient(
-    to bottom,
-    var(--kg-border-strong),
-    var(--kg-border) 55%,
-    transparent
-  );
-  background-size: 2px 100%;
-  background-repeat: no-repeat;
-  background-position: left top;
+  position: relative;
+  margin: 0;
+  padding: 1.4rem 0;
   scroll-margin-top: calc(var(--kg-header-h) + 1rem);
 }
+.top + .top { border-top: 1px solid var(--kg-border); }
 
 p.src,
 .top > .src,
@@ -612,11 +604,23 @@ td.src,
   overflow-x: auto;
 }
 
+/* De-boxed: drop the card framing so the signature reads as flush code. */
 .top > .src {
   position: relative;
-  box-shadow: 0 1px 2px var(--kg-shadow);
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  padding-right: 2.25rem;
   overflow: visible;
 }
+/* Doc and sub-items nest a touch under the flush signature header. */
+.top > .doc { padding-left: 1rem; }
+.top > .subs { padding-left: 1rem; }
+/* Instances are a distinct section (their own header bar + cards), not inline
+   sub-items, so they sit flush rather than nested under the signature. */
+.top > .subs.instances { padding-left: 0; }
 /* The signature inside a declaration. A block that uses the full box width and
    wraps at whitespace with a hanging indent, so a soft-wrapped line lines up
    under the first token. The Source/# tag hangs off the box corner (out of
@@ -739,15 +743,31 @@ a.link:hover, a.selflink:hover { color: var(--kg-accent); text-decoration: none;
   transform: translateY(70%);
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  padding: 0.05rem 0.55rem;
+  gap: 0;
+  padding: 0.22rem 0.28rem;
   background: var(--kg-bg-raised);
   border: 1px solid var(--kg-border);
-  border-radius: 999px;
+  border-radius: var(--kg-radius-s);
   box-shadow: 0 1px 2px var(--kg-shadow);
   text-indent: 0;
   z-index: 3;
   transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+/* The Source link renders as a code "</>" glyph rather than the word, to keep the
+   per-declaration chrome compact. The "Source" text stays in the DOM (font-size 0)
+   as the accessible name. */
+.kg-srclinks a.link {
+  display: inline-flex;
+  font-size: 0;
+  line-height: 0;
+}
+.kg-srclinks a.link::before {
+  content: "";
+  width: 0.92rem;
+  height: 0.92rem;
+  background-color: currentColor;
+  -webkit-mask: var(--kg-icon-source) center / contain no-repeat;
+  mask: var(--kg-icon-source) center / contain no-repeat;
 }
 /* Solid background change on hover (the pill straddles two surfaces, so a
    translucent fill would show both through it). No movement. */
@@ -756,14 +776,31 @@ a.link:hover, a.selflink:hover { color: var(--kg-accent); text-decoration: none;
   border-color: var(--kg-accent);
 }
 .kg-srclinks:hover a.link { color: var(--kg-accent); }
+/* De-boxed signatures (top-level AND sub-items): the Source pill floats to the
+   top-right of its own signature, aligned with the first line, rather than
+   hanging off a corner. Keeps the pill look + hover from the base rule; the
+   signature reserves padding-right so they never overlap. One treatment for all,
+   so the pills line up down the page. */
+.top > .src > .kg-srclinks,
+.subs .src > .kg-srclinks,
+[id="section.orphans"] td.src > .kg-srclinks {
+  top: 0;
+  right: 0;
+  bottom: auto;
+  transform: none;
+}
+.subs .src:has(> .kg-srclinks),
+[id="section.orphans"] td.src:has(> .kg-srclinks) { padding-right: 2.25rem; }
+/* On an instance card the Source tag tucks into the top-right corner, so it
+   matches the card's corner radius and squares the inner edges rather than
+   floating as a capsule. */
+.instances td.src > .kg-srclinks,
+[id="section.orphans"] td.src > .kg-srclinks {
+  border-radius: 0 var(--kg-radius-s) 0 var(--kg-radius-s);
+}
 /* The tag dips below the box, so following prose needs a little clearance.
    Top-level decls and methods put their doc right after the box (a sibling),
    instances carry the doc in a separate row (see .instances td.doc). */
-/* A p.src doc (or its sub-items, when undocumented) sits below the signature and
-   needs clearance under the tag hanging off it. Scoped to p.src so instance heads
-   (td.src, whose tag sits at the card's bottom edge) are excluded. */
-p.src:has(> .kg-srclinks) + .doc,
-p.src:has(> .kg-srclinks) + .subs { margin-top: 1.4rem; }
 .kg-srclinks a.selflink { opacity: 0; transition: opacity 0.12s; }
 /* Reveal the # on hover of any signature carrying it (a top-level decl OR a
    typeclass method, which is a .subs p.src, not a .top child). */
@@ -773,7 +810,19 @@ p.src:has(> .kg-srclinks) + .subs { margin-top: 1.4rem; }
    redundant. Hide it from first paint when JS is live, and show the box as
    clickable. No-JS keeps the hover-revealed # above as the fallback. */
 html[data-js] .kg-srclinks a.selflink { display: none; }
-html[data-js] .src.kg-anchorable { cursor: pointer; }
+/* The de-boxed signatures are their own anchor links, so they take a faint hover
+   highlight. A box-shadow spread gives the fill some breathing room without any
+   margin/padding, so the signature never shifts and stays aligned with its
+   caption and doc. */
+html[data-js] .src.kg-anchorable {
+  cursor: pointer;
+  border-radius: var(--kg-radius-s);
+  transition: background-color 0.12s ease, box-shadow 0.12s ease;
+}
+html[data-js] .src.kg-anchorable:hover {
+  background-color: var(--kg-bg-raised);
+  box-shadow: 0 0 0 0.3rem var(--kg-bg-raised);
+}
 /* A re-export carries only a # selflink and no Source. With the # hidden, that
    pill would be empty, so drop it entirely when there is no Source link in it.
    The box is still its own anchor (wireSelfAnchors reads the hidden selflink). */
@@ -817,16 +866,46 @@ html[data-js] .src.kg-anchorable { cursor: pointer; }
 .subs.methods td,
 .subs.fields td,
 .subs.bundled-patterns td {
-  padding: 0.4rem 0.6rem;
-  border-bottom: 1px solid var(--kg-border);
+  padding: 0.4rem 0;
   vertical-align: top;
 }
-.subs td.src {
-  background: var(--kg-code-bg);
+/* De-boxed sub-items (rustdoc style): methods, constructors and fields drop the
+   fill and separator borders to match the flush top-level signatures. Whole
+   declarations are parted by the .top divider; sub-items within one by spacing. */
+.subs td.src,
+.subs .src {
+  background: none;
   border: none;
-  border-bottom: 1px solid var(--kg-border);
   border-radius: 0;
+  padding: 0;
   white-space: pre-wrap;
+}
+/* Light dividers between sub-items restore separation within a section without
+   re-boxing. The rule is on the 2nd-and-later item (border-top), so the first
+   item has no line above it and the last has none below it (nothing to stack
+   with the .top divider). */
+.subs.methods .doc + .src,
+.subs.methods .src + .src,
+.subs.fields ul li + li,
+.subs.constructors tr + tr,
+.subs.bundled-patterns tr + tr {
+  position: relative;
+  margin-top: 1.7rem;
+}
+/* The divider is a ::before line floating in the margin gap, so the item box
+   itself starts at its text (no top padding) and the Source pill can align to
+   the first line. */
+.subs.methods .doc + .src::before,
+.subs.methods .src + .src::before,
+.subs.fields ul li + li::before,
+.subs.constructors tr + tr::before,
+.subs.bundled-patterns tr + tr::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -0.85rem;
+  border-top: 1px solid var(--kg-border);
 }
 .subs td.doc { color: var(--kg-fg-muted); }
 .subs td.doc.empty { display: none; }
@@ -856,8 +935,7 @@ html[data-js] .src.kg-anchorable { cursor: pointer; }
 .subs.fields ul { display: block; margin: 0.3rem 0 0; list-style: none; }
 .subs.fields ul li {
   display: block;
-  padding: 0.4rem 0;
-  border-bottom: 1px solid var(--kg-border);
+  padding: 0.5rem 0 0;
 }
 .subs.fields ul li:last-child { border-bottom: none; }
 .subs.fields ul li dfn,
@@ -1272,6 +1350,9 @@ table.info th { font-weight: 600; color: var(--kg-fg-faint); }
    can be long and would crowd a two-column table) on its own line as a code
    bar, its description below. Far more readable than side by side.
    Mirrors the constructor/field treatment. */
+/* The per-argument docs continue the signature directly (the Source pill is now
+   top-right, not hanging below), so sit them tight under it. */
+.subs.arguments { margin-top: 0.25rem; }
 .subs.arguments table,
 .subs.arguments tbody,
 .subs.arguments tr,
@@ -1440,11 +1521,6 @@ a.selflink {
     border-color 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
 }
 
-/* Subtle elevation when hovering a declaration card. */
-.top > .src:hover {
-  border-color: var(--kg-border-strong);
-  box-shadow: 0 2px 10px var(--kg-shadow);
-}
 
 /* Slim, themed scrollbars. */
 #kg-sidebar,
