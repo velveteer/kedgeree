@@ -329,6 +329,11 @@ data Expr a where
 
 -- | The zero literal, as a pattern synonym bundled with 'Expr'. Here to show
 -- how a bundled pattern's description lays out next to other declarations.
+--
+-- ==== __Examples__
+--
+-- >>> Zero
+-- IntLit 0
 pattern Zero :: Expr Int
 pattern Zero = IntLit 0
 

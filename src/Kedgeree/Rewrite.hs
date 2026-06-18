@@ -458,7 +458,11 @@ breakLongSigs =
     -- top-right, then wrap the signature in .kg-sig, which flows around the float:
     -- the first line makes room, every line below reclaims the full width.
     processSig inner =
-      let (sig, links) = T.breakOn "<span class=\"kg-srclinks\">" inner
+      let (beforeLinks, links) = T.breakOn "<span class=\"kg-srclinks\">" inner
+          -- Drop the trailing rightedge span (residual from Haddock's float
+          -- layout). Its newline would render as a blank line in the pre-wrap
+          -- signature, pushing the doc down.
+          sig = T.stripEnd (fst (T.breakOn "<span class=\"rightedge\"" beforeLinks))
           hasLinks = not (T.null links)
           long = visibleLen sig > 52
           sig' = highlight long (forallLong sig) hasLinks sig

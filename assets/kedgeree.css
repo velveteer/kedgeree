@@ -582,7 +582,7 @@ blockquote {
   flex-direction: column;
   position: relative;
   margin: 0;
-  padding: 1.4rem 0;
+  padding: 1.15rem 0;
   scroll-margin-top: calc(var(--kg-header-h) + 1rem);
 }
 .top + .top { border-top: 1px solid var(--kg-border); }
@@ -598,7 +598,7 @@ td.src,
   padding: 0.7rem 0.95rem;
   font-family: var(--kg-mono);
   font-size: 0.875rem;
-  line-height: 1.6;
+  line-height: 1.45;
   overflow-x: auto;
 }
 
@@ -613,11 +613,8 @@ td.src,
   padding-right: 2.25rem;
   overflow: visible;
 }
-/* Doc and sub-items indent under the signature. */
-.top > .doc { padding-left: 1rem; }
-.top > .subs { padding-left: 1rem; }
-/* Instances are their own section, so they sit flush, not indented. */
-.top > .subs.instances { padding-left: 0; }
+/* Doc and sub-items sit flush at the left edge, grouped by their captions and
+   dividers. */
 /* Full-width signature. Soft-wraps with a hanging indent so a wrapped line lines
    up under the first token. An over-long token breaks rather than scrolling. */
 .kg-sig {
@@ -835,7 +832,7 @@ html[data-js] .src.kg-anchorable:hover {
 /* ==========================================================================
    Sub-blocks: constructors, methods, instances
    ========================================================================== */
-.subs { margin: 0.75rem 0 0; }
+.subs { margin: 0.6rem 0 0; }
 .subs.constructors table,
 .subs.methods table,
 .subs.fields table,
@@ -866,7 +863,7 @@ html[data-js] .src.kg-anchorable:hover {
 .subs.constructors tr + tr,
 .subs.bundled-patterns tr + tr {
   position: relative;
-  margin-top: 1.7rem;
+  margin-top: 1.4rem;
 }
 /* Draw it as a ::before line in the margin gap, so the item box starts at its
    text and the Source chip aligns to the first line. */
@@ -879,7 +876,7 @@ html[data-js] .src.kg-anchorable:hover {
   position: absolute;
   left: 0;
   right: 0;
-  top: -0.85rem;
+  top: -0.7rem;
   border-top: 1px solid var(--kg-border);
 }
 .subs td.doc { color: var(--kg-fg-muted); }
@@ -901,6 +898,16 @@ html[data-js] .src.kg-anchorable:hover {
 .subs.bundled-patterns td.src { overflow-x: auto; }
 .subs.constructors td.doc,
 .subs.bundled-patterns td.doc { padding: 0.45rem 0.6rem 0.7rem; }
+/* An Examples section in a constructor or bundled-pattern doc cell breaks out of
+   the cell padding so it spans and aligns like the ones on functions, header and
+   body together (otherwise the body reads narrower than its own header). */
+.subs.constructors td.doc > h4.details-toggle-control,
+.subs.constructors td.doc > details,
+.subs.bundled-patterns td.doc > h4.details-toggle-control,
+.subs.bundled-patterns td.doc > details {
+  margin-left: -0.6rem;
+  margin-right: -0.6rem;
+}
 .subs.constructors td.doc.empty,
 .subs.bundled-patterns td.doc.empty { display: none; padding: 0; }
 
@@ -931,7 +938,7 @@ html[data-js] .src.kg-anchorable:hover {
 }
 .subs.fields ul li > .doc {
   display: block;
-  padding: 0.15rem 0 0;
+  padding: 0.4rem 0 0;
   color: var(--kg-fg-muted);
 }
 .subs.fields ul li > .doc p { margin: 0; }
@@ -1404,7 +1411,14 @@ table.info th { font-weight: 600; color: var(--kg-fg-faint); }
 #module-list .module:hover .collapser::before { background-color: var(--kg-accent); }
 
 /* Fixity annotations (infixl 6 …). */
+/* Residual Haddock float-clear element (stripped server-side, hidden as a guard). */
+.rightedge { display: none; }
+/* Haddock appends the operator fixity inline at the end of the signature. Drop it
+   to its own line below so it never wraps as part of the type. */
 .fixity {
+  display: block;
+  margin-top: 0.35rem;
+  text-indent: -2ch;
   color: var(--kg-fg-faint);
   font-size: 0.78rem;
   font-style: normal;
