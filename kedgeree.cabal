@@ -3,11 +3,7 @@ name:               kedgeree
 version:            0.1.0
 synopsis:           A modern theme for Haddock documentation
 description:
-  Kedgeree post-processes Haddock HTML output to give it a modern look:
-  light / dark / auto theming, a sticky sidebar, keyboard-driven search,
-  and polished hyperlinked-source pages. It piggy-backs on the HTML that
-  Haddock already produces. Run @kedgeree@ on a generated doc directory and
-  it injects a small CSS + JS theme in place.
+  Kedgeree post-processes Haddock HTML output to give it a modern look
 
 license:            BSD-3-Clause
 license-file:       LICENSE
@@ -25,6 +21,7 @@ extra-source-files:
   assets/kedgeree.js
   assets/kedgeree-logo.svg
   assets/fonts/*.woff2
+  assets/icons/*.svg
 
 source-repository head
   type:     git
