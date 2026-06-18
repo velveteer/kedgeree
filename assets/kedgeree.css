@@ -1309,6 +1309,12 @@ table.info th { font-weight: 600; color: var(--kg-fg-faint); }
 #synopsis ul,
 #synopsis ul li.src { background: transparent; }
 .subs .subs p.src { background: var(--kg-code-bg); }
+/* A method's default-signature block (DefaultSignatures) is a continuation of the
+   method, not a nested code list, so de-box it to match the method above and drop
+   the empty caption Haddock emits for it. */
+.subs.default p.src { background: none; }
+.subs.default > .caption { display: none; }
+.subs.default { margin-top: 0.35rem; }
 
 /* ==========================================================================
    Coverage for the rest of Haddock's surfaces

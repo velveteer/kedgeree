@@ -483,15 +483,15 @@ breakLongSigs =
     -- their @>@ as the @&gt;@ entity.
     -- grpW threads whether the enclosing top-level group is a kept (kg-grp) one,
     -- so its closing bracket emits the matching </span>.
-    highlight long breakForall wrapped = T.pack . scan (0 :: Int) False False . T.unpack
+    highlight long breakForall wrapped = T.pack . scan (0 :: Int) False False False . T.unpack
       where
-        scan _ _ _ [] = []
-        scan depth seen grpW ('<' : cs) =
+        scan _ _ _ _ [] = []
+        scan depth seen grpW fundep ('<' : cs) =
           let (tag, rest) = break (== '>') cs
            in case rest of
-                ('>' : rest') -> '<' : tag ++ '>' : scan depth seen grpW rest'
+                ('>' : rest') -> '<' : tag ++ '>' : scan depth seen grpW fundep rest'
                 _ -> '<' : tag
-        scan depth seen grpW s@(c : cs)
+        scan depth seen grpW fundep s@(c : cs)
           -- A top-level group with no comma at its own level AND short enough (a
           -- binder, a function type like @(i -> a -> f b)@) is kept whole in a
           -- non-breaking span, so only top-level arrows ever break. A comma group
@@ -502,22 +502,27 @@ breakLongSigs =
               let keep = not (groupHasComma cs) && groupShort 30 cs
                in (if keep then "<span class=\"kg-grp\">" else "")
                     ++ c
-                    : scan 1 True keep cs
-          | c == '(' || c == '[' = c : scan (depth + 1) True grpW cs
+                    : scan 1 True keep fundep cs
+          | c == '(' || c == '[' = c : scan (depth + 1) True grpW fundep cs
           | c == ')' || c == ']' =
               let d = max 0 (depth - 1)
                in if d == 0
-                    then c : (if grpW then "</span>" else "") ++ scan 0 True False cs
-                    else c : scan d True grpW cs
+                    then c : (if grpW then "</span>" else "") ++ scan 0 True False fundep cs
+                    else c : scan d True grpW fundep cs
+          -- A top-level @|@ opens a functional-dependency (or constructor) list, so
+          -- keep everything after it whole. A fundep like @| f -> i@ must not break
+          -- on its arrow the way a function type does.
+          | depth == 0, c == '|' = c : scan 0 True grpW True cs
           -- Break onto a fresh two-column-indented line before each TOP-LEVEL
-          -- operator. Nested operators (inside a group) are colored but never
-          -- broken, so a function type stays on one line.
+          -- operator. Nested operators (inside a group), and anything after a
+          -- fundep @|@, are colored but never broken.
           | Just (op, rest) <- opAt s =
               let brk
+                    | fundep = ""
                     | not (long && depth == 0 && seen) = ""
                     | wrapped = "\n"
                     | otherwise = "\n  "
-               in brk ++ "<span class=\"kg-op\">" ++ op ++ "</span>" ++ scan depth True grpW rest
+               in brk ++ "<span class=\"kg-op\">" ++ op ++ "</span>" ++ scan depth True grpW fundep rest
           -- Break AFTER a top-level forall dot or a type-synonym equals, so the
           -- quantifier or LHS sits on its own line and the body or RHS starts
           -- fresh. The forall break is gated on forallLong, so a short quantifier
@@ -529,19 +534,21 @@ breakLongSigs =
           , c == '.'
           , long
           , breakForall
+          , not fundep
           , seen
           , (' ' : _) <- cs =
               let brk = if wrapped then "\n" else "\n  "
-               in c : brk ++ scan 0 True grpW (dropWhile (== ' ') cs)
+               in c : brk ++ scan 0 True grpW fundep (dropWhile (== ' ') cs)
           | depth == 0
           , c == '='
           , long
+          , not fundep
           , seen
           , (' ' : _) <- cs =
               let brk = if wrapped then "\n" else "\n  "
-               in c : brk ++ scan 0 True grpW (dropWhile (== ' ') cs)
-          | c == ' ' || c == '\t' || c == '\n' = c : scan depth seen grpW cs
-          | otherwise = c : scan depth True grpW cs
+               in c : brk ++ scan 0 True grpW fundep (dropWhile (== ' ') cs)
+          | c == ' ' || c == '\t' || c == '\n' = c : scan depth seen grpW fundep cs
+          | otherwise = c : scan depth True grpW fundep cs
 
         opAt s
           | "::" `isPrefixOf` s = Just ("::", drop 2 s)

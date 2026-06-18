@@ -1,6 +1,8 @@
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PatternSynonyms #-}
@@ -84,6 +86,8 @@ module Showcase
   , Container (..)
   , Convert (..)
   , Describe (..)
+  , Indexed (..)
+  , Render (..)
   , Tabulate (..)
 
     -- * GADTs & existentials
@@ -310,6 +314,21 @@ class
   tabulate = show
 
 instance Tabulate Int
+
+-- | A multi-parameter class with a long header AND a functional dependency, to
+-- check that the fundep arrow (@| c -> e@) stays whole rather than breaking like
+-- a function arrow.
+class (Eq c, Eq e, Show c, Show e) => Indexed c e | c -> e where
+  -- | The element at an index, if present.
+  index :: c -> Int -> Maybe e
+
+-- | A class with a default method signature (@DefaultSignatures@), so Haddock
+-- renders the extra @default render :: ...@ type signature.
+class Render a where
+  -- | Render a value as text.
+  render :: a -> String
+  default render :: (Show a) => a -> String
+  render = show
 
 -- | A simple, type-indexed expression GADT.
 --
