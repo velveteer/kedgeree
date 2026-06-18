@@ -14,6 +14,7 @@ module Kedgeree.Process
 
 import Control.Concurrent (getNumCapabilities)
 import Control.Concurrent.Async (mapConcurrently)
+import Control.Concurrent.MVar (modifyMVar_, newMVar)
 import Control.Concurrent.QSem (newQSem, signalQSem, waitQSem)
 import Control.Exception (bracket_)
 import Control.Monad (forM, join, when)
@@ -44,7 +45,7 @@ import System.FilePath
   , takeExtension
   , (</>)
   )
-import System.IO (hPutStrLn, stderr)
+import System.IO (hFlush, hIsTerminalDevice, hPutStr, hPutStrLn, stderr)
 
 import Kedgeree.Assets (assets)
 import Kedgeree.Rewrite (Inject (..), displayName, landingPage, marker, rewriteMain, rewriteSource)
@@ -117,11 +118,32 @@ run opts = do
       pkgByDir <- mapM (\d -> (,) d <$> packageFor d) dirs
       let pkgOf p = join (lookup (takeDirectory p) pkgByDir)
 
+      -- A live counter, redrawn in place as pages finish, so a big tree shows
+      -- motion instead of looking frozen. Only on an interactive stderr, so piped
+      -- or CI output stays a single clean summary line. The pass is concurrent, so
+      -- the MVar both counts and serializes the redraw, keeping racing workers from
+      -- interleaving their characters on the line.
+      let total = length pages
+      isTty <- hIsTerminalDevice stderr
+      done <- newMVar (0 :: Int)
+      let tick = when isTty $ modifyMVar_ done $ \k -> do
+            let n = k + 1
+            hPutStr stderr ("\rkedgeree: theming " <> show n <> "/" <> show total <> " pages")
+            hFlush stderr
+            pure n
+
+      -- Hide the cursor while the line animates (else it bounces between the end
+      -- of the text and column 0 on every redraw) and always restore it, erasing
+      -- the progress line, even if the pass throws.
       results <-
-        pooledMapConcurrently
-          workers
-          (\p -> rewritePage opts inj (assetPrefix dir p) (pkgOf p) p)
-          pages
+        bracket_
+          (when isTty $ hPutStr stderr "\ESC[?25l" >> hFlush stderr)
+          (when isTty $ hPutStr stderr "\r\ESC[K\ESC[?25h" >> hFlush stderr)
+          ( pooledMapConcurrently
+              workers
+              (\p -> do r <- rewritePage opts inj (assetPrefix dir p) (pkgOf p) p; tick; pure r)
+              pages
+          )
       -- Count only pages we actually (re)wrote, so a no-op re-run reports
       -- honestly rather than claiming to have themed everything again.
       let writtenPages = map fst (filter snd results)
@@ -257,9 +279,11 @@ findCabalFiles dir = do
   where
     skip e = take 1 e == "." || e == "dist-newstyle"
 
--- | Immediate subdirectories of @dir@ that look like generated Haddock packages
--- (their @index.html@ advertises a @name-version@ package id). Each result is a
--- directory name, which doubles as the landing link target and curation key.
+-- | Immediate subdirectories of @dir@ that hold a generated Haddock package
+-- (their @index.html@ carries Haddock's @package-header@). Each result is a
+-- directory name, which doubles as the landing link target and curation key. We
+-- key off the package-header rather than the caption text, since that wording
+-- differs between @haddock-project@'s @--hackage@ output and its default.
 discoverPackages :: FilePath -> IO [Text]
 discoverPackages dir = do
   entries <- listDirectory dir
@@ -271,8 +295,23 @@ discoverPackages dir = do
           let p = dir </> e
           isDir <- doesDirectoryExist p
           if isDir
-            then (T.pack e <$) <$> packageFor p
+            then do
+              haddock <- isHaddockDocDir p
+              pure (if haddock then Just (T.pack e) else Nothing)
             else pure Nothing
+
+-- | Does @d@ hold a Haddock package doc set? True when its @index.html@ carries
+-- Haddock's @package-header@, the one marker present in every contents page and
+-- preserved by our own theming, with or without @--hackage@.
+isHaddockDocDir :: FilePath -> IO Bool
+isHaddockDocDir d = do
+  let idx = d </> "index.html"
+  exists <- doesFileExist idx
+  if not exists
+    then pure False
+    else do
+      bytes <- BS.readFile idx
+      pure $ either (const False) ("id=\"package-header\"" `T.isInfixOf`) (TE.decodeUtf8' bytes)
 
 -- | Run @f@ over every item concurrently, but with at most @n@ actions in
 -- flight at once (bounding open file handles and memory). Order of results
@@ -340,15 +379,17 @@ packageFor d = do
       bytes <- BS.readFile idx
       pure $ either (const Nothing) extractPackage (TE.decodeUtf8' bytes)
 
--- | Pull the package id out of a contents page. Haddock labels the module group
--- with a @\<p class="caption">@ holding @\<pkg>-\<version>@, but the page has
--- other captions too (e.g. "Modules"), so take the first caption whose text is
--- shaped like @name-version@ rather than relying on its position.
+-- | Pull the package id out of a contents page. Haddock holds @\<pkg>-\<version>@
+-- in a @class="caption"@ element, but the wording and tag vary: @--hackage@
+-- output uses a bare @\<p class="caption">text-2.1</p>@, the default a
+-- @\<span class="caption">text-2.1: synopsis</span>@. The page also has other
+-- captions (e.g. "Modules"), so take the first whose leading text, with any
+-- @": synopsis"@ dropped, is shaped like @name-version@.
 extractPackage :: Text -> Maybe Text
 extractPackage html =
-  find isPackageId (map captionText (drop 1 (T.splitOn "<p class=\"caption\">" html)))
+  find isPackageId (map captionText (drop 1 (T.splitOn "class=\"caption\">" html)))
   where
-    captionText = T.strip . fst . T.breakOn "</p>"
+    captionText = T.strip . fst . T.breakOn ": " . T.takeWhile (/= '<')
     -- A package id is @name-version@ with a numeric version, e.g. @text-2.1@.
     -- Reject @<>"@ as well, since the value is injected into a meta attribute.
     isPackageId s = case T.breakOnEnd "-" s of
