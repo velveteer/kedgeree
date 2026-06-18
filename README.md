@@ -2,7 +2,7 @@
 
 # kedgeree
 
-<img src="logo.png" alt="Kedgeree" width="120" />
+<img src="https://raw.githubusercontent.com/velveteer/kedgeree/main/logo.png" alt="Kedgeree" width="120" />
 
 Haskell documentation made _delicious_
 
