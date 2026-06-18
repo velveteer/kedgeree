@@ -70,7 +70,7 @@ stamp = marker <> "-version=\"" <> kgVersion <> "\""
 -- server-side so it does not pop in after the script runs.
 rewriteMain :: Text -> Inject -> Maybe Text -> Text -> Text
 rewriteMain prefix inj mpkg html =
-  wrapSig (injectInstances (injectSidebar (injectChrome (rewrite inj sheets injection html))))
+  dedupeNoids (wrapSig (injectInstances (injectSidebar (injectChrome (rewrite inj sheets injection html)))))
   where
     -- Group each declaration's trailing Source/# links and fold per-argument type
     -- bars back onto the signature line, both server-side, so CSS pins/shows them
@@ -326,6 +326,17 @@ instancesControl =
     , "<li><button type=\"button\" data-inst=\"close\">Collapse all instances</button></li>"
     , "</ul></details></li>"
     ]
+
+-- | Haddock stamps @ch:noid:0@ on every collapsible doc section it cannot name (a
+-- bare heading, a bundled pattern's Examples) and never increments, so several share
+-- one id and only the first toggles. Renumber each heading\/details pair to a unique
+-- id so every one expands. Idempotent: a deduped page re-runs unchanged.
+dedupeNoids :: Text -> Text
+dedupeNoids html = case T.splitOn "ch:noid:0" html of
+  (s0 : segs@(_ : _)) -> s0 <> T.concat (zipWith glue [0 :: Int ..] segs)
+  _ -> html
+  where
+    glue k seg = "ch:noid:" <> T.pack (show (k `div` 2)) <> seg
 
 -- | Wrap each declaration's trailing @Source@ / @#@ links in a
 -- @\<span class="kg-srclinks">@ so the stylesheet can pin them to the signature's

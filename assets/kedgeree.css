@@ -78,8 +78,8 @@ body.js-enabled #synopsis summary:hover::before { background-color: var(--kg-acc
 /* The module-tree chevron is painted by an id-specific rule above, so its hover
    accent must match that specificity to win. */
 body.js-enabled #module-list .details-toggle-control:hover::before { background-color: var(--kg-accent); }
-body.js-enabled h4.details-toggle-control { transition: color 0.12s ease; }
-body.js-enabled h4.details-toggle-control:hover { color: var(--kg-fg); }
+body.js-enabled :is(h2, h3, h4, h5, h6).details-toggle-control { transition: color 0.12s ease; }
+body.js-enabled :is(h2, h3, h4, h5, h6).details-toggle-control:hover { color: var(--kg-fg); }
 
 /* Make native controls (checkboxes, scrollbars, form fields) match the theme. */
 :root {
@@ -637,23 +637,29 @@ td.src,
   max-width: none;
   z-index: auto;
   margin: 1.5rem 0;
-  border: 1px solid var(--kg-border);
-  border-radius: var(--kg-radius);
-  overflow: hidden;
-  background: var(--kg-bg-raised);
 }
+/* The summary is a bar, exactly like every other collapsible header (Examples,
+   Instances, sub-headings) so all the expand/collapse affordances match. */
 #synopsis summary {
   display: block;
   float: none;
   width: auto;
   height: auto;
   cursor: pointer;
-  padding: 0.6rem 1rem;
+  padding: 0.5rem 0.7rem;
   font-size: 0.9rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--kg-fg);
-  background: var(--kg-bg-sunken) !important;
+  background: var(--kg-bg-raised) !important;
+  border: 1px solid var(--kg-border);
+  border-radius: var(--kg-radius-s);
   list-style: none;
+  user-select: none;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+#synopsis summary:hover {
+  border-color: var(--kg-accent);
+  background: var(--kg-accent-soft) !important;
 }
 #synopsis summary::-webkit-details-marker { display: none; }
 /* Same chevron icon as every other toggle (see :root --kg-chevron). */
@@ -664,7 +670,7 @@ td.src,
   height: 1em;
   margin-right: 0.3em;
   vertical-align: -0.18em;
-  background-color: var(--kg-fg-faint);
+  background-color: var(--kg-fg-muted);
   -webkit-mask: var(--kg-chevron) left center / auto 0.66em no-repeat;
   mask: var(--kg-chevron) left center / auto 0.66em no-repeat;
 }
@@ -674,7 +680,7 @@ td.src,
   -webkit-mask-size: 0.66em auto;
   mask-size: 0.66em auto;
 }
-#synopsis ul.details-toggle { margin: 0; padding: 0.5rem 1rem; list-style: none; }
+#synopsis ul.details-toggle { margin: 0.6rem 0 0; padding: 0.1rem 0.7rem; list-style: none; }
 #synopsis li.src.short {
   background: none;
   border: none;
@@ -901,9 +907,9 @@ html[data-js] .src.kg-anchorable:hover {
 /* An Examples section in a constructor or bundled-pattern doc cell breaks out of
    the cell padding so it spans and aligns like the ones on functions, header and
    body together (otherwise the body reads narrower than its own header). */
-.subs.constructors td.doc > h4.details-toggle-control,
+.subs.constructors td.doc > :is(h2, h3, h4, h5, h6).details-toggle-control,
 .subs.constructors td.doc > details,
-.subs.bundled-patterns td.doc > h4.details-toggle-control,
+.subs.bundled-patterns td.doc > :is(h2, h3, h4, h5, h6).details-toggle-control,
 .subs.bundled-patterns td.doc > details {
   margin-left: -0.6rem;
   margin-right: -0.6rem;
@@ -958,7 +964,7 @@ html[data-js] .src.kg-anchorable:hover {
    makes a details-toggle). One look for all of them. A full-width bar with the
    chevron reads as a clear, consistent expand/collapse affordance rather than
    plain bold text. */
-h4.details-toggle-control {
+:is(h2, h3, h4, h5, h6).details-toggle-control {
   display: block;
   font-size: 0.9rem;
   font-weight: 700;
@@ -972,15 +978,15 @@ h4.details-toggle-control {
   user-select: none;
   transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
 }
-h4.details-toggle-control:hover {
+:is(h2, h3, h4, h5, h6).details-toggle-control:hover {
   color: var(--kg-fg);
   border-color: var(--kg-accent);
   background: var(--kg-accent-soft);
 }
 /* Ink the chevron a touch brighter than the faint default so the bar reads as
    actionable. Hover still accents it via the shared toggle rule. */
-h4.details-toggle-control.expander::before,
-h4.details-toggle-control.collapser::before { background-color: var(--kg-fg-muted); }
+:is(h2, h3, h4, h5, h6).details-toggle-control.expander::before,
+:is(h2, h3, h4, h5, h6).details-toggle-control.collapser::before { background-color: var(--kg-fg-muted); }
 /* The native <summary> toggles are hide-when-js-enabled. Only the no-JS path
    sees them, where they ARE the disclosure control, so keep their native marker
    (we don't hide it). With JS they're display:none, replaced by the chevron. */

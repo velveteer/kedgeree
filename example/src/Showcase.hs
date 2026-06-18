@@ -21,6 +21,14 @@
 --
 -- === A documentation sub-heading
 --
+-- ===== __A deeper collapsible heading__
+--
+-- A deeper heading level that is still collapsible, to check it gets the same
+-- bar styling as a top-level Examples or Instances header.
+--
+-- >>> 2 + 2
+-- 4
+--
 -- Some text underneath a sub-heading, to check heading rhythm inside docs.
 --
 -- A bullet list:
