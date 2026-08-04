@@ -130,6 +130,12 @@ body.kg-sidebar-min {
     "main"
     "footer";
 }
+/* Hide a stray/empty #kg-sidebar whenever the page is in single-column mode.
+   Scoped to match the collapse rule above: without this, an element with
+   grid-area: sidebar (present but unhidden) spawns a phantom implicit column
+   that pushes #content off-centre. Genuine sidebar pages keep kg-has-sidebar
+   (without kg-sidebar-min), so they are untouched. */
+body:not(.kg-has-sidebar) #kg-sidebar,
 body.kg-sidebar-min #kg-sidebar { display: none; }
 
 /* :link/:visited overrides Haddock's link color. */

@@ -1,15 +1,9 @@
-<div align="center">
+<h1 align="center">
+  <img src="https://raw.githubusercontent.com/velveteer/kedgeree/main/logo.png" alt="Kedgeree" width="82" /><br>
+  kedgeree
+</h1>
 
-# kedgeree
-
-<img src="https://raw.githubusercontent.com/velveteer/kedgeree/main/logo.png" alt="Kedgeree" width="120" />
-
-Haskell documentation made _delicious_
-
-</div>
-
-
----
+<p align="center">Haskell documentation made _delicious_</p>
 
 ## What it does
 
