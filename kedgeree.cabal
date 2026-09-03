@@ -8,7 +8,7 @@ description:
   search, bundled fonts, and polished hyperlinked-source pages.
   .
   It is a single self-contained binary with the theme assets embedded. Run it
-  on a @doc/html/\<pkg>@ directory from @cabal haddock@, or on a whole
+  on the @doc\/html\/\<pkg>@ directory from @cabal haddock@, or on a whole
   multi-package tree from @cabal haddock-project@ or @stack haddock@, where it
   can also generate a landing page listing every package. Runs are idempotent,
   so it is safe to re-run after regenerating the docs.

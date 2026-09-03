@@ -14,7 +14,7 @@ jobs:
         ghc: ['9.6', '9.10', '9.12', '9.14']
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: haskell-actions/setup@v2
         id: setup
@@ -23,7 +23,7 @@ jobs:
           cabal-version: '3.14'
 
       - name: Cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ${{ steps.setup.outputs.cabal-store }}
@@ -47,17 +47,32 @@ jobs:
 
   lint:
     runs-on: ubuntu-latest
+    env:
+      FOURMOLU_VERSION: 0.20.1.0
+      HLINT_VERSION: '3.10'
     steps:
-      - uses: actions/checkout@v6
-      - uses: haskell-actions/run-fourmolu@v11
-        with:
-          version: latest
-          pattern: |
-            src/**/*.hs
-            app/**/*.hs
-            test/**/*.hs
-      - uses: haskell-actions/hlint-setup@v2
-      - uses: haskell-actions/hlint-run@v2
-        with:
-          path: '["src/", "app/", "test/"]'
-          fail-on: warning
+      - uses: actions/checkout@v7
+
+      - name: Install fourmolu and hlint
+        # Pinned direct downloads. haskell-actions/run-fourmolu@v11 cannot fetch
+        # fourmolu >= 0.20 (zip assets) and haskell-actions/hlint-* still run on Node 20.
+        run: |
+          curl -sSL -o fourmolu.zip \
+            "https://github.com/fourmolu/fourmolu/releases/download/v${FOURMOLU_VERSION}/fourmolu-${FOURMOLU_VERSION}-linux-x86_64.zip"
+          unzip -q fourmolu.zip
+          install -m 755 "fourmolu-${FOURMOLU_VERSION}-linux-x86_64/fourmolu" /usr/local/bin/fourmolu
+          rm -rf fourmolu.zip "fourmolu-${FOURMOLU_VERSION}-linux-x86_64"
+
+          curl -sSL "https://github.com/ndmitchell/hlint/releases/download/v${HLINT_VERSION}/hlint-${HLINT_VERSION}-x86_64-linux.tar.gz" \
+            | tar xz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/hlint-${HLINT_VERSION}" >> "$GITHUB_PATH"
+
+      - name: fourmolu
+        run: |
+          fourmolu --version
+          fourmolu --mode check --check-idempotence src app test
+
+      - name: hlint
+        run: |
+          hlint --version
+          hlint src app test
