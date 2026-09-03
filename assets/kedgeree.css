@@ -291,7 +291,7 @@ body { overflow-wrap: anywhere; }
 }
 .kg-brand svg { width: 1.4rem; height: 1.4rem; color: var(--kg-accent); }
 
-/* Brand mark: a plain lambda for now. */
+/* Brand mark (header brand link and the source-page back button). */
 .kg-lambda {
   color: var(--kg-accent);
   font-family: var(--kg-mono);
@@ -1553,23 +1553,12 @@ pre::-webkit-scrollbar-thumb:hover {
 
 /* JS-built header actions + sidebar home. */
 .kg-actions { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
-/* Scoped under #kg-sidebar so it outranks `#kg-sidebar a` (an id selector).
-   Otherwise the flush padding-left below silently loses to it, and the λ pushes
-   the heading text in past the nav options. */
+/* The sidebar heading: the module (or page) name, linking back to its header.
+   Scoped under #kg-sidebar so it outranks `#kg-sidebar a` (an id selector). */
 #kg-sidebar .kg-sb-home {
-  display: flex;
-  align-items: center;
-  /* Keep the heading content flush at the rail (so off-module headings sit one
-     level out, not indented), but let the active/hover highlight reach a little
-     further left via the negative margin (absorbed by the sidebar's own left
-     padding), so the λ has breathing room from the highlight's edge rather than
-     touching it. The λ sits in a fixed-width box so the heading text lands at a
-     predictable spot, left of the nav options, whatever the glyph width. */
-  margin: 0 0 0.5rem -0.4rem;
-  padding-left: 0.4rem;
+  margin-bottom: 0.5rem;
   color: var(--kg-fg);
 }
-#kg-sidebar .kg-sb-home .kg-lambda { flex: none; width: 0.9rem; }
 
 /* Search overlay. */
 .kg-search-overlay .kg-help-card { width: min(40rem, 94vw); padding: 0; overflow: hidden; }

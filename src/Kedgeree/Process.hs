@@ -1,12 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
--- | Drive a run of Kedgeree over a directory of generated Haddock HTML:
--- copy the embedded assets in, then rewrite every page in place.
---
--- The walk is recursive, so it handles both a single package's
--- @doc/html/<pkg>@ directory and a whole-project tree produced by
--- @cabal haddock-project@ (an index page plus one subdirectory per
--- package, each with its own @src/@).
+-- | Theme a directory tree of Haddock HTML in place: write the shared assets,
+-- rewrite every page concurrently, optionally write a landing page.
 module Kedgeree.Process
   ( Options (..)
   , run
@@ -19,67 +14,49 @@ import Control.Concurrent.QSem (newQSem, signalQSem, waitQSem)
 import Control.Exception (bracket_)
 import Control.Monad (forM, join, when)
 import qualified Data.ByteString as BS
-import Data.Char (isAlpha)
-import Data.Foldable (traverse_)
-import Data.List (find, nub)
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
-import Data.Maybe (catMaybes)
-import qualified Data.Set as Set
+import Data.Foldable (for_)
+import Data.List (nub)
 import Data.Text (Text)
-import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import System.Directory
   ( createDirectoryIfMissing
   , doesDirectoryExist
   , doesFileExist
   , listDirectory
-  , makeAbsolute
   , pathIsSymbolicLink
   )
-import System.FilePath
-  ( equalFilePath
-  , makeRelative
-  , splitDirectories
-  , takeDirectory
-  , takeExtension
-  , (</>)
-  )
+import System.FilePath (equalFilePath, takeDirectory, takeExtension, (</>))
 import System.IO (hFlush, hIsTerminalDevice, hPutStr, hPutStrLn, stderr)
 
-import Kedgeree.Assets (assets)
-import Kedgeree.Rewrite (Inject (..), displayName, landingPage, marker, rewriteMain, rewriteSource)
+import Kedgeree.Assets (assetDirName, assetPrefix, assets)
+import Kedgeree.Haddock (PageKind (..), classify, extractPackage)
+import Kedgeree.Inject (Inject (..))
+import Kedgeree.Landing (Landing (..), writeLanding)
+import Kedgeree.Rewrite (rewriteMain, rewriteSource)
 
--- | Parsed command-line options.
+-- | Command-line options.
 data Options = Options
   { optDir :: FilePath
-  -- ^ root directory of generated Haddock HTML
+  -- ^ root of the Haddock HTML tree
   , optDefaultTheme :: Text
   -- ^ @"auto"@ / @"light"@ / @"dark"@
   , optAccent :: Maybe Text
-  -- ^ optional accent-color override
   , optFont :: Maybe Text
-  -- ^ optional UI/prose font-family override
   , optMono :: Maybe Text
-  -- ^ optional monospace font-family override
   , optNoSource :: Bool
   -- ^ skip hyperlinked-source pages
   , optHideModuleInfo :: Bool
-  -- ^ hide Haddock's module-info badge (Safe Haskell, Language, Extensions)
   , optForce :: Bool
-  -- ^ re-theme pages already carrying this build's stamp
+  -- ^ re-theme pages already at this version
   , optLanding :: Maybe Text
-  -- ^ when set, generate a package landing page (with this title) at the root
+  -- ^ landing page title, when one is wanted
   , optPackages :: [Text]
-  -- ^ curate which package subdirectories the landing lists, and their order.
-  -- Empty means auto-discover every package directory, alphabetically
+  -- ^ landing package list and order. Empty: discover all
   , optProjectRoot :: Maybe FilePath
-  -- ^ override the auto-detected project root used to read package synopses
   , optLandingDescription :: Maybe Text
-  -- ^ optional one-line project description shown under the landing page title
   }
 
--- | Apply the theme to @optDir@ and everything beneath it.
+-- | Theme @optDir@ and everything beneath it.
 run :: Options -> IO ()
 run opts = do
   let dir = optDir opts
@@ -89,67 +66,36 @@ run opts = do
     else do
       let inj =
             Inject
-              (optDefaultTheme opts)
-              (optAccent opts)
-              (optFont opts)
-              (optMono opts)
-              (optHideModuleInfo opts)
-              (optForce opts)
-
+              { injDefaultTheme = optDefaultTheme opts
+              , injAccent = optAccent opts
+              , injFont = optFont opts
+              , injMono = optMono opts
+              , injHideModuleInfo = optHideModuleInfo opts
+              , injForce = optForce opts
+              }
       pages0 <- findHtml dir
-      -- When asked for a landing page we own the root index.html and replace it
-      -- wholesale below, so leave it out of the in-place theming pass.
+      -- The landing page replaces the root index.html wholesale.
       let pages = case optLanding opts of
             Just _ -> filter (not . equalFilePath (dir </> "index.html")) pages0
             Nothing -> pages0
 
-      -- Files are independent, so process them on a bounded worker pool.
-      caps <- getNumCapabilities
-      let workers = max 4 (caps * 2)
-
-      -- One shared copy of the asset set (CSS/JS/fonts/logo) lands under the
-      -- tree root, and every page references it with a relative href computed
-      -- from its depth. This avoids duplicating ~120 KB of fonts into every
-      -- directory that holds HTML (a package dir, its src/, …).
       mapM_ (writeAsset (dir </> assetDirName)) assets
 
-      let dirs = nub (map takeDirectory pages)
-      -- Resolve each directory's package name (from index.html) for the navbar.
-      pkgByDir <- mapM (\d -> (,) d <$> packageFor d) dirs
+      -- Package id per directory, from its index.html, for the header brand.
+      pkgByDir <- mapM (\d -> (,) d <$> packageFor d) (nub (map takeDirectory pages))
       let pkgOf p = join (lookup (takeDirectory p) pkgByDir)
 
-      -- A live counter, redrawn in place as pages finish, so a big tree shows
-      -- motion instead of looking frozen. Only on an interactive stderr, so piped
-      -- or CI output stays a single clean summary line. The pass is concurrent, so
-      -- the MVar both counts and serializes the redraw, keeping racing workers from
-      -- interleaving their characters on the line.
-      let total = length pages
-      isTty <- hIsTerminalDevice stderr
-      done <- newMVar (0 :: Int)
-      let tick = when isTty $ modifyMVar_ done $ \k -> do
-            let n = k + 1
-            hPutStr stderr ("\rkedgeree: theming " <> show n <> "/" <> show total <> " pages")
-            hFlush stderr
-            pure n
-
-      -- Hide the cursor while the line animates (else it bounces between the end
-      -- of the text and column 0 on every redraw) and always restore it, erasing
-      -- the progress line, even if the pass throws.
+      caps <- getNumCapabilities
       results <-
-        bracket_
-          (when isTty $ hPutStr stderr "\ESC[?25l" >> hFlush stderr)
-          (when isTty $ hPutStr stderr "\r\ESC[K\ESC[?25h" >> hFlush stderr)
-          ( pooledMapConcurrently
-              workers
-              (\p -> do r <- rewritePage opts inj (assetPrefix dir p) (pkgOf p) p; tick; pure r)
-              pages
-          )
-      -- Count only pages we actually (re)wrote, so a no-op re-run reports
-      -- honestly rather than claiming to have themed everything again.
-      let writtenPages = map fst (filter snd results)
-          mains = length (filter (== PageMain) writtenPages)
-          srcs = length (filter (== PageSource) writtenPages)
+        withProgress (length pages) $ \tick ->
+          pooledMapConcurrently
+            (max 4 (caps * 2))
+            (\p -> rewritePage opts inj (assetPrefix dir p) (pkgOf p) p <* tick)
+            pages
 
+      let written = [kind | (kind, True) <- results]
+          mains = length (filter (== PageMain) written)
+          srcs = length (filter (== PageSource) written)
       putStrLn $
         if mains + srcs == 0
           then "kedgeree: already up to date in " <> dir
@@ -161,194 +107,46 @@ run opts = do
               <> " in "
               <> dir
 
-      -- Opt-in multi-package landing page at the tree root.
-      case optLanding opts of
-        Nothing -> pure ()
-        Just title -> writeLanding opts inj title
+      for_ (optLanding opts) $ \title ->
+        writeLanding
+          inj
+          Landing
+            { landingDir = dir
+            , landingTitle = title
+            , landingDescription = optLandingDescription opts
+            , landingPackages = optPackages opts
+            , landingProjectRoot = optProjectRoot opts
+            }
 
--- | Write a themed landing page to @optDir\/index.html@ listing the package
--- directories beneath it. With no @--package@ names it lists every discovered
--- package alphabetically. Otherwise it keeps exactly those, in the given order,
--- warning on @stderr@ about any that do not exist.
-writeLanding :: Options -> Inject -> Text -> IO ()
-writeLanding opts inj title = do
-  found <- Set.fromList <$> discoverPackages dir
-  selected <- case optPackages opts of
-    [] -> pure (Set.toAscList found)
-    wanted -> do
-      traverse_ warnMissing (filter (`Set.notMember` found) wanted)
-      pure (filter (`Set.member` found) wanted)
-  case selected of
-    [] -> hPutStrLn stderr $ "kedgeree: --landing: no packages found under " <> dir
-    pkgs -> do
-      -- One-line descriptions, looked up by package name (the dir name with any
-      -- version suffix dropped) against the project's .cabal synopses. The
-      -- project root is auto-detected by walking up from the doc tree, unless an
-      -- explicit --project-root overrides it.
-      root <- maybe (findProjectRoot dir) (pure . Just) (optProjectRoot opts)
-      synopses <- maybe (pure Map.empty) readSynopses root
-      let dest = dir </> "index.html"
-          prefix = T.pack assetDirName <> "/"
-          entries = map (\p -> (p, Map.lookup (displayName p) synopses)) pkgs
-          page = landingPage inj prefix title (optLandingDescription opts) entries
-      BS.writeFile dest (TE.encodeUtf8 page)
-      putStrLn $
-        "kedgeree: wrote landing page ("
-          <> show (length pkgs)
-          <> " package(s)) to "
-          <> dest
-  where
-    dir = optDir opts
-    warnMissing pkg =
-      hPutStrLn stderr $ "kedgeree: --package not found under " <> dir <> ": " <> T.unpack pkg
+-- | Run an action with a @tick@ that redraws a @n/total@ counter on stderr.
+-- Only when stderr is a terminal. The cursor is hidden while drawing and the
+-- line erased afterwards, even on exception. Thread-safe.
+withProgress :: Int -> (IO () -> IO a) -> IO a
+withProgress total body = do
+  isTty <- hIsTerminalDevice stderr
+  done <- newMVar (0 :: Int)
+  let tick = when isTty $ modifyMVar_ done $ \k -> do
+        let n = k + 1
+        hPutStr stderr ("\rkedgeree: theming " <> show n <> "/" <> show total <> " pages")
+        hFlush stderr
+        pure n
+  bracket_
+    (when isTty $ hPutStr stderr "\ESC[?25l" >> hFlush stderr)
+    (when isTty $ hPutStr stderr "\r\ESC[K\ESC[?25h" >> hFlush stderr)
+    (body tick)
 
--- | Walk up from @start@ to the nearest ancestor that looks like a project root
--- (one carrying a @cabal.project@, @stack.yaml@, or any @.cabal@ file), so the
--- landing can read package synopses without being told where the sources live.
--- The doc tree always sits inside its project, so this finds it.
-findProjectRoot :: FilePath -> IO (Maybe FilePath)
-findProjectRoot start = makeAbsolute start >>= go
-  where
-    go d = do
-      here <- looksLikeRoot d
-      if here
-        then pure (Just d)
-        else let up = takeDirectory d in if up == d then pure Nothing else go up
-    looksLikeRoot d = do
-      proj <- doesFileExist (d </> "cabal.project")
-      stk <- doesFileExist (d </> "stack.yaml")
-      cabal <- any ((== ".cabal") . takeExtension) <$> listDirectory d
-      pure (proj || stk || cabal)
-
--- | Map every package @name@ to its @synopsis@, read from the @.cabal@ files
--- found beneath @root@. Packages without a synopsis are simply absent.
-readSynopses :: FilePath -> IO (Map Text Text)
-readSynopses root = do
-  cabals <- findCabalFiles root
-  Map.fromList . catMaybes <$> traverse synopsisOf cabals
-  where
-    synopsisOf f = do
-      bytes <- BS.readFile f
-      pure $ case TE.decodeUtf8' bytes of
-        Left _ -> Nothing
-        Right txt ->
-          let fields = cabalFields txt
-           in (,) <$> lookup "name" fields <*> lookup "synopsis" fields
-
--- | The top-level fields of a @.cabal@ file as @(lowercased-name, value)@ pairs,
--- each value joined across its indented continuation lines. The field list is
--- produced lazily, so looking up an early field (@name@, @synopsis@) doesn't
--- parse the rest of the file. Indented stanza fields and comments are skipped.
-cabalFields :: Text -> [(Text, Text)]
-cabalFields = collect . T.lines
-  where
-    collect [] = []
-    collect (l : ls) = case fieldStart l of
-      Just (key, value0) ->
-        let (continued, rest) = span continues ls
-            value = T.unwords (filter (not . T.null) (map T.strip (value0 : continued)))
-         in (key, value) : collect rest
-      Nothing -> collect ls
-
-    -- A column-0 @field: value@ line yields its lowercased name and raw value.
-    fieldStart l
-      | not (indented l)
-      , (before, after) <- T.break (== ':') l
-      , Just (_colon, value0) <- T.uncons after
-      , let key = T.toLower (T.strip before)
-      , not (T.null key)
-      , T.all (\c -> isAlpha c || c == '-') key =
-          Just (key, value0)
-      | otherwise = Nothing
-
-    continues l = indented l && not (T.null (T.strip l))
-    indented = maybe False ((`elem` (" \t" :: String)) . fst) . T.uncons
-
--- | Every @.cabal@ file at or below @dir@. We don't descend into hidden
--- directories (@.git@, @.stack-work@, and the like) or cabal's build tree. None
--- of those carry a project's own @.cabal@ files, so this just skips that noise.
-findCabalFiles :: FilePath -> IO [FilePath]
-findCabalFiles dir = do
-  entries <- listDirectory dir
-  fmap concat . forM entries $ \e -> do
-    let p = dir </> e
-    isDir <- doesDirectoryExist p
-    if isDir
-      then if skip e then pure [] else findCabalFiles p
-      else pure [p | takeExtension e == ".cabal"]
-  where
-    skip e = take 1 e == "." || e == "dist-newstyle"
-
--- | Immediate subdirectories of @dir@ that hold a generated Haddock package
--- (their @index.html@ carries Haddock's @package-header@). Each result is a
--- directory name, which doubles as the landing link target and curation key. We
--- key off the package-header rather than the caption text, since that wording
--- differs between @haddock-project@'s @--hackage@ output and its default.
-discoverPackages :: FilePath -> IO [Text]
-discoverPackages dir = do
-  entries <- listDirectory dir
-  catMaybes <$> traverse probe entries
-  where
-    probe e
-      | e == assetDirName = pure Nothing
-      | otherwise = do
-          let p = dir </> e
-          isDir <- doesDirectoryExist p
-          if isDir
-            then do
-              haddock <- isHaddockDocDir p
-              pure (if haddock then Just (T.pack e) else Nothing)
-            else pure Nothing
-
--- | Does @d@ hold a Haddock package doc set? True when its @index.html@ carries
--- Haddock's @package-header@, the one marker present in every contents page and
--- preserved by our own theming, with or without @--hackage@.
-isHaddockDocDir :: FilePath -> IO Bool
-isHaddockDocDir d = do
-  let idx = d </> "index.html"
-  exists <- doesFileExist idx
-  if not exists
-    then pure False
-    else do
-      bytes <- BS.readFile idx
-      pure $ either (const False) ("id=\"package-header\"" `T.isInfixOf`) (TE.decodeUtf8' bytes)
-
--- | Run @f@ over every item concurrently, but with at most @n@ actions in
--- flight at once (bounding open file handles and memory). Order of results
--- matches the input.
+-- | 'mapConcurrently' with at most @n@ actions in flight.
 pooledMapConcurrently :: Int -> (a -> IO b) -> [a] -> IO [b]
 pooledMapConcurrently n f xs = do
   sem <- newQSem n
-  mapConcurrently (\x -> bracket_ (waitQSem sem) (signalQSem sem) (f x)) xs
+  mapConcurrently (bracket_ (waitQSem sem) (signalQSem sem) . f) xs
 
--- | How a page was classified (also drives which stylesheet it gets).
-data PageKind = PageMain | PageSource | PageSkipped
-  deriving (Eq)
-
--- | The shared asset directory, placed once at the tree root.
-assetDirName :: FilePath
-assetDirName = "kedgeree-assets"
-
--- | The relative href prefix from a page back to the shared asset directory:
--- @"kedgeree-assets\/"@ for a page at the root, @"..\/kedgeree-assets\/"@ one
--- level down, and so on. @root@ is the directory the assets were written under.
-assetPrefix :: FilePath -> FilePath -> Text
-assetPrefix root page =
-  T.concat (replicate depth "../") <> T.pack assetDirName <> "/"
-  where
-    rel = makeRelative root (takeDirectory page)
-    depth = length (filter (`notElem` [".", ""]) (splitDirectories rel))
-
--- | Read, classify, rewrite and (if changed) write a single page back. Returns
--- the page's classification and whether it was actually rewritten this run.
--- @prefix@ resolves the shared assets for this page. @mpkg@ is the package name
--- for this page's directory, if known.
+-- | Read, classify, rewrite and (if changed) write back one page. Returns the
+-- kind and whether the file was written.
 rewritePage :: Options -> Inject -> Text -> Maybe Text -> FilePath -> IO (PageKind, Bool)
 rewritePage opts inj prefix mpkg path = do
   bytes <- BS.readFile path
   case TE.decodeUtf8' bytes of
-    -- A non-UTF-8 file isn't Haddock output we can theme, so skip it rather than
-    -- aborting the whole (concurrent) run.
     Left _ -> do
       hPutStrLn stderr $ "kedgeree: skipping (not valid UTF-8): " <> path
       pure (PageSkipped, False)
@@ -360,91 +158,34 @@ rewritePage opts inj prefix mpkg path = do
           let themed = case kind of
                 PageSource -> rewriteSource prefix inj original
                 _ -> rewriteMain prefix inj mpkg original
-              rewritten = case (kind, mpkg) of
-                (PageMain, Just pkg) -> injectPackageMeta pkg themed
-                _ -> themed
-              changed = rewritten /= original
-          when changed $ BS.writeFile path (TE.encodeUtf8 rewritten)
+              changed = themed /= original
+          when changed $ BS.writeFile path (TE.encodeUtf8 themed)
           pure (kind, changed)
 
--- | The package name advertised by a directory's @index.html@ (the nested
--- module-list caption), if present.
+-- | The package id advertised by a directory's @index.html@, if any.
 packageFor :: FilePath -> IO (Maybe Text)
 packageFor d = do
   let idx = d </> "index.html"
   exists <- doesFileExist idx
   if not exists
     then pure Nothing
-    else do
-      bytes <- BS.readFile idx
-      pure $ either (const Nothing) extractPackage (TE.decodeUtf8' bytes)
+    else either (const Nothing) extractPackage . TE.decodeUtf8' <$> BS.readFile idx
 
--- | Pull the package id out of a contents page. Haddock holds @\<pkg>-\<version>@
--- in a @class="caption"@ element, but the wording and tag vary: @--hackage@
--- output uses a bare @\<p class="caption">text-2.1</p>@, the default a
--- @\<span class="caption">text-2.1: synopsis</span>@. The page also has other
--- captions (e.g. "Modules"), so take the first whose leading text, with any
--- @": synopsis"@ dropped, is shaped like @name-version@.
-extractPackage :: Text -> Maybe Text
-extractPackage html =
-  find isPackageId (map captionText (drop 1 (T.splitOn "class=\"caption\">" html)))
-  where
-    captionText = T.strip . fst . T.breakOn ": " . T.takeWhile (/= '<')
-    -- A package id is @name-version@ with a numeric version, e.g. @text-2.1@.
-    -- Reject @<>"@ as well, since the value is injected into a meta attribute.
-    isPackageId s = case T.breakOnEnd "-" s of
-      (name, ver) ->
-        not (T.null name)
-          && not (T.null ver)
-          && T.all (`elem` ("0123456789." :: String)) ver
-          && T.all (`notElem` ("<>\"" :: String)) name
-
--- | Record the package name in a @\<meta>@ so kedgeree.js can show it. The tag
--- carries the marker so a version-upgrade re-run strips and refreshes it like
--- every other injected element.
-injectPackageMeta :: Text -> Text -> Text
-injectPackageMeta pkg html
-  | "kg-package" `T.isInfixOf` html = html
-  | otherwise = case T.breakOn "</head>" html of
-      (before, rest)
-        | T.null rest -> html
-        | otherwise -> before <> meta <> rest
-  where
-    meta =
-      "<meta name=\"kg-package\" content=\""
-        <> pkg
-        <> "\" "
-        <> marker
-        <> "=\"package\" />"
-
--- | A page is a hyperlinked-source page when it lacks Haddock's package
--- header yet carries tokenised-source @hs-*@ spans. Everything else
--- (modules, the contents page, the index, a haddock-project landing page)
--- is treated as a main page.
-classify :: Text -> PageKind
-classify t
-  | "package-header" `T.isInfixOf` t = PageMain
-  | "class=\"hs-" `T.isInfixOf` t = PageSource
-  | otherwise = PageMain
-
--- | Write one embedded asset under @base@, creating directories as needed.
+-- | Write one embedded asset under @base@.
 writeAsset :: FilePath -> (FilePath, BS.ByteString) -> IO ()
 writeAsset base (path, bytes) = do
   let dest = base </> path
   createDirectoryIfMissing True (takeDirectory dest)
   BS.writeFile dest bytes
 
--- | Every @.html@ file at or below @dir@ (recursive).
+-- | Every @.html@ at or below @dir@. Symlinks are not followed.
 findHtml :: FilePath -> IO [FilePath]
 findHtml dir = do
   entries <- listDirectory dir
   fmap concat . forM entries $ \e -> do
     let p = dir </> e
     isSym <- pathIsSymbolicLink p
-    if isSym
-      then pure [] -- don't follow symlinks, to avoid directory cycles
-      else do
-        isDir <- doesDirectoryExist p
-        if isDir
-          then findHtml p
-          else pure [p | takeExtension e == ".html"]
+    isDir <- if isSym then pure False else doesDirectoryExist p
+    if isDir
+      then findHtml p
+      else pure [p | not isSym, takeExtension e == ".html"]

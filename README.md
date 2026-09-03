@@ -3,7 +3,7 @@
   kedgeree
 </h1>
 
-<p align="center">Haskell documentation made _delicious_</p>
+<p align="center">Haskell documentation made <em>delicious</em></p>
 
 ## What it does
 
@@ -141,6 +141,7 @@ stripped. MathJax is left untouched.
 
 ```sh
 cabal build
+cabal test                              # golden + unit tests
 ./example/build-demo.sh                 # themed docs for the demo modules only (fast)
 python3 -m http.server -d example/site  # then open http://localhost:8000
 ```
@@ -154,3 +155,32 @@ landing with `kedgeree-demo` alongside a few real Hackage libraries (lens,
 aeson, containers), so the theme is shown on real-world docs too. The first run
 builds those packages (cached afterwards under `.landing-build/`). This is what
 the Pages workflow publishes.
+
+### Layout
+
+| Module | Role |
+| --- | --- |
+| `Kedgeree.Haddock` | Every id, class and tag shape assumed of Haddock's HTML. Start here when a Haddock release changes its markup. |
+| `Kedgeree.Html` | Generic text-level HTML editing. |
+| `Kedgeree.Inject` | The `<head>` injection, version stamp, and re-run clearing. |
+| `Kedgeree.Chrome` | Server-rendered header, Instances control and sidebar. |
+| `Kedgeree.Sidebar` | Sidebar nav, parsed with tagsoup and rendered with lucid. |
+| `Kedgeree.Signature` | Source-link grouping, argument inlining, long-signature breaking. |
+| `Kedgeree.Rewrite` | The per-page pipeline. |
+| `Kedgeree.Landing` | The `--landing` page and `.cabal` synopsis discovery. |
+| `Kedgeree.Process` | Directory walk, concurrency, progress, asset writing. |
+
+### Tests
+
+`test/fixtures/` holds unmodified Haddock output for the demo modules. Each
+golden test themes a fixture and compares it with `test/golden/`. After an
+intentional change to the output:
+
+```sh
+cabal run kedgeree-test -- --accept
+git diff test/golden
+```
+
+The suite also checks that re-running on themed output is a no-op, that a page
+themed by an older version (or with `--force`) is re-themed to exactly the fresh
+output, and unit-tests the Haddock probes and text helpers.
