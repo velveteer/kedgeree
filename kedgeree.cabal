@@ -39,7 +39,7 @@ extra-source-files:
   assets/kedgeree-source.css
   assets/kedgeree-tokens.css
   assets/kedgeree.js
-  assets/kedgeree-logo.svg
+  assets/kedgeree-logo.png
   assets/fonts/*.woff2
   assets/icons/*.svg
 

@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="https://raw.githubusercontent.com/velveteer/kedgeree/main/logo.png" alt="Kedgeree" width="82" /><br>
+  <img src="https://raw.githubusercontent.com/velveteer/kedgeree/main/logo.png" alt="Kedgeree" width="96" /><br>
   kedgeree
 </h1>
 
@@ -163,6 +163,7 @@ the Pages workflow publishes.
 | `Kedgeree.Haddock` | Every id, class and tag shape assumed of Haddock's HTML. Start here when a Haddock release changes its markup. |
 | `Kedgeree.Html` | Generic text-level HTML editing. |
 | `Kedgeree.Inject` | The `<head>` injection, version stamp, and re-run clearing. |
+| `Kedgeree.Assets` | The theme assets (CSS, JS, fonts, icons, favicon), embedded at build time. |
 | `Kedgeree.Chrome` | Server-rendered header, Instances control and sidebar. |
 | `Kedgeree.Sidebar` | Sidebar nav, parsed with tagsoup and rendered with lucid. |
 | `Kedgeree.Signature` | Source-link grouping, argument inlining, long-signature breaking. |

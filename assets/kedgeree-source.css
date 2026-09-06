@@ -133,8 +133,8 @@ span.annot:hover span.annottext { display: block; }
 .kg-iconbtn:hover { color: var(--kg-fg); }
 /* The theme toggle picks its glyph (auto / sun / moon) via a mask, inked with
    currentColor, the same files and approach as the doc pages. Source pages do not
-   load kedgeree.css, so the rules are repeated here. The back button is just the
-   lambda mark. */
+   load kedgeree.css, so the rules are repeated here. */
+.kg-back::before,
 .kg-theme::before {
   content: "";
   flex: 0 0 auto;
@@ -147,6 +147,6 @@ span.annot:hover span.annottext { display: block; }
 .kg-theme { --kg-icon: url("icons/auto.svg"); }
 html[data-theme="light"] .kg-theme { --kg-icon: url("icons/sun.svg"); }
 html[data-theme="dark"] .kg-theme { --kg-icon: url("icons/moon.svg"); }
-.kg-lambda { color: var(--kg-accent); font-family: var(--kg-mono); font-weight: 700; line-height: 1; }
+.kg-back { --kg-icon: url("icons/back.svg"); }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

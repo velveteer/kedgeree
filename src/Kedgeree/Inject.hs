@@ -160,13 +160,13 @@ noscriptFix =
     , "</style></noscript>"
     ]
 
--- | SVG favicon (Haddock provides none).
+-- | PNG favicon (Haddock provides none).
 favicon :: Text -> Text
 favicon prefix =
   T.concat
-    [ "<link rel=\"icon\" type=\"image/svg+xml\" href=\""
+    [ "<link rel=\"icon\" type=\"image/png\" href=\""
     , prefix
-    , "kedgeree-logo.svg\" "
+    , "kedgeree-logo.png\" "
     , marker
     , "=\"icon\" />"
     ]

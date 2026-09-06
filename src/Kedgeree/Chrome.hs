@@ -36,7 +36,6 @@ headerChrome brand =
     , "<a class=\"kg-brand\" href=\"index.html\" "
     , marker
     , "=\"brand\">"
-    , "<span class=\"kg-lambda\" aria-hidden=\"true\">&#955;</span>"
     , "<span>"
     , htmlEscape brand
     , "</span></a>"

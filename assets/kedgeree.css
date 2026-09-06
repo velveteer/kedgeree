@@ -289,16 +289,6 @@ body { overflow-wrap: anywhere; }
   font-weight: 700;
   color: var(--kg-fg);
 }
-.kg-brand svg { width: 1.4rem; height: 1.4rem; color: var(--kg-accent); }
-
-/* Brand mark (header brand link and the source-page back button). */
-.kg-lambda {
-  color: var(--kg-accent);
-  font-family: var(--kg-mono);
-  font-weight: 700;
-  font-size: 1.15em;
-  line-height: 1;
-}
 
 .kg-iconbtn {
   display: inline-flex;
@@ -1641,7 +1631,7 @@ pre::-webkit-scrollbar-thumb:hover {
   .kg-search { min-width: 0; flex: 1 1 auto; }
   .kg-search .kg-search-label, .kg-search kbd { display: none; }
   /* Keep the package name, but truncate it if it is very long. */
-  .kg-brand > span:not(.kg-lambda) {
+  .kg-brand > span {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

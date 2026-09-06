@@ -18,9 +18,6 @@
     return n;
   };
 
-  /* Brand mark. */
-  var LAMBDA = '<span class="kg-lambda" aria-hidden="true">&#955;</span>';
-
   /* Theme toggle */
   var mql = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)");
 
@@ -389,8 +386,8 @@
     if (!$("#package-header")) {
       var bar = el("div", { class: "kg-src-toolbar" });
       var back = el("a", {
-        class: "kg-iconbtn", href: "../index.html", title: "Back to docs", "aria-label": "Back to docs",
-      }, LAMBDA);
+        class: "kg-iconbtn kg-back", href: "../index.html", title: "Back to docs", "aria-label": "Back to docs",
+      });
       bar.appendChild(back);
       bar.appendChild(themeButton());
       document.body.appendChild(bar);
