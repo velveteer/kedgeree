@@ -124,6 +124,20 @@
     scrollSpy($$("a[href^='#']", nav));
   }
 
+  // Scroll the sidebar so the active link is visible, unless the pointer is
+  // over the sidebar (the reader is using it).
+  function revealInSidebar(link) {
+    var nav = link.closest("#kg-sidebar");
+    if (!nav || nav.matches(":hover")) return;
+    var pad = 48;
+    // Position within the sidebar's scroll box, independent of offsetParent.
+    var top = link.getBoundingClientRect().top - nav.getBoundingClientRect().top + nav.scrollTop;
+    var bottom = top + link.offsetHeight;
+    var viewTop = nav.scrollTop, viewBottom = viewTop + nav.clientHeight;
+    if (top < viewTop + pad) nav.scrollTop = Math.max(0, top - pad);
+    else if (bottom > viewBottom - pad) nav.scrollTop = bottom - nav.clientHeight + pad;
+  }
+
   function scrollSpy(links) {
     var targets = [];
     links.forEach(function (a) {
@@ -158,7 +172,7 @@
       // Touch the DOM only when the active link changes.
       if (current !== active) {
         if (active) active.classList.remove("kg-active");
-        if (current) current.classList.add("kg-active");
+        if (current) { current.classList.add("kg-active"); revealInSidebar(current); }
         active = current;
       }
     }
@@ -341,16 +355,45 @@
     else if (e.key === "?") { e.preventDefault(); toggleHelp(); }
   });
 
-  // Expand or collapse all instance lists (the "i:<Class>" sections, not the
-  // per-instance method panes "i:ic:..."). Syncs each toggle's chevron.
+  // Expand or collapse every instance list ("i:<Class>") and every instance
+  // card ("i:ic:..."). Syncs each toggle's chevron and aria state.
   function setAllInstances(open) {
     $$("details[id^='i:']").forEach(function (d) {
-      if (d.id.indexOf("i:ic:") === 0) return;
       d.open = open;
       $$("[data-details-id='" + d.id + "']").forEach(function (ctrl) {
         ctrl.classList.toggle("collapser", open);
         ctrl.classList.toggle("expander", !open);
+        syncToggleAria(ctrl);
       });
+    });
+  }
+
+  // Haddock's toggle controls are bare spans and headings. Make them focusable
+  // buttons: Enter / Space forwards a click to the bundle's handler, and
+  // aria-expanded mirrors the .collapser / .expander state the bundle sets.
+  function syncToggleAria(ctrl) {
+    var det = document.getElementById(ctrl.getAttribute("data-details-id") || "");
+    var open = ctrl.classList.contains("collapser") || (det ? det.open : false);
+    ctrl.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+  function keyboardToggles() {
+    var ctrls = $$(".details-toggle-control[data-details-id]");
+    ctrls.forEach(function (ctrl) {
+      if (!ctrl.hasAttribute("tabindex")) ctrl.setAttribute("tabindex", "0");
+      ctrl.setAttribute("role", "button");
+      var det = document.getElementById(ctrl.getAttribute("data-details-id"));
+      if (det) ctrl.setAttribute("aria-controls", det.id);
+      syncToggleAria(ctrl);
+      ctrl.addEventListener("keydown", function (e) {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        ctrl.click();
+      });
+    });
+    // The bundle toggles the classes on click. Re-read after it has run.
+    document.addEventListener("click", function (e) {
+      var ctrl = e.target.closest(".details-toggle-control[data-details-id]");
+      if (ctrl) setTimeout(function () { syncToggleAria(ctrl); }, 0);
     });
   }
 
@@ -372,6 +415,7 @@
         det.open = !det.open;
         ctrl.classList.toggle("collapser", det.open);
         ctrl.classList.toggle("expander", !det.open);
+        syncToggleAria(ctrl);
       });
     });
   }
@@ -479,6 +523,7 @@
     enhanceLanding();
     buildSidebar();
     enlargeInstanceToggles();
+    keyboardToggles();
     enhanceSource();
     wireSelfAnchors();
     enhanceFooter();

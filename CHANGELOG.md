@@ -19,3 +19,11 @@ Initial release.
   older version is re-themed.
 - Options to override the accent color and fonts, hide the module-info badge,
   and skip the source pages.
+- Long signatures break at their operators only when they do not fit the
+  column (a container query), so most read on one line at desktop width.
+- Readable defaults: a 40rem prose measure, quiet inline code, full-contrast
+  sub-item docs, a heading outline (module title as `h1`, sections as `h2`),
+  and a print stylesheet.
+- Accessible controls: every collapse toggle is a focusable button with
+  `aria-expanded`, the sidebar precedes the content in tab order and follows
+  the reader, and section headings show their anchor on hover.

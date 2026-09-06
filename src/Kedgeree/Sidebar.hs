@@ -78,7 +78,7 @@ renderSidebar html
           subList orphans
           ul_ [class_ "kg-sb-contents"] $
             for_ tocSections $ \(sid, secTitle) -> li_ $ do
-              a_ [href_ ("#" <> sid)] (toHtml secTitle)
+              a_ [href_ ("#" <> sid), title_ secTitle] (toHtml secTitle)
               subList (Map.findWithDefault [] sid bySection)
       | otherwise = do
           sbTitle "Declarations"
@@ -91,7 +91,7 @@ renderSidebar html
     subList ds = unless (null ds) (ul_ [class_ "kg-sb-sub"] (traverse_ declLi ds))
 
     declLi :: (Text, Text) -> Html ()
-    declLi (did, name) = li_ (a_ [href_ ("#" <> did)] (toHtml name))
+    declLi (did, name) = li_ (a_ [href_ ("#" <> did), title_ name] (toHtml name))
 
 -- | Walk @#interface@ tracking the current @g:@ section. Yields
 -- @(section, (id, name))@ for the first @a.def[id]@ of each @.top@.
@@ -143,12 +143,13 @@ within i tag = balanced (0 :: Int) . after (hasId i)
       | isOpen tag t = t : balanced (d + 1) ts
       | otherwise = t : balanced d ts
 
--- | Text of the first @.caption@ inside the element with the given id.
+-- | Text of the first @.caption@ inside the element with the given id
+-- (Haddock's @\<p>@, or the @\<h1>@ 'Kedgeree.Rewrite.promoteHeadings' makes it).
 captionOf :: Text -> [Tag Text] -> Text
 captionOf i tags =
   case dropWhile (not . isCaption) (after (hasId i) tags) of
-    (_ : rest) -> T.strip (innerText (takeWhile (not . isClose "p") rest))
-    [] -> ""
+    (TagOpen name _ : rest) -> T.strip (innerText (takeWhile (not . isClose name) rest))
+    _ -> ""
   where
     isCaption (TagOpen _ as) = hasClass Haddock.captionClass as
     isCaption _ = False

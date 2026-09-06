@@ -61,8 +61,8 @@
   --kg-header-h:  3.25rem;
   --kg-content-max: 60rem;
   /* Prose is capped tighter than the column so code boxes get the extra width
-     while descriptions stay at a readable measure. */
-  --kg-prose-max: 46rem;
+     while descriptions stay at a readable measure (~72 characters). */
+  --kg-prose-max: 40rem;
 
   --kg-font: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
     Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -73,8 +73,9 @@
   --kg-radius-s: 6px;
 }
 
-/* ----- Design tokens: dark ----------------------------------------------- */
-@media (prefers-color-scheme: dark) {
+/* ----- Design tokens: dark -----------------------------------------------
+   Screen only: print always uses the light palette. */
+@media screen and (prefers-color-scheme: dark) {
   :root:not([data-resolved="light"]) {
     --kg-accent:        #b49bff;
     --kg-accent-strong: #c8b6ff;
@@ -109,6 +110,7 @@
 }
 
 /* Explicit dark, chosen by the visitor, overrides the media query. */
+@media screen {
 html[data-resolved="dark"] {
   --kg-accent:        #b49bff;
   --kg-accent-strong: #c8b6ff;
@@ -139,4 +141,5 @@ html[data-resolved="dark"] {
 
   --kg-gutter:  #888299;
   --kg-line-hl: rgba(180, 155, 255, 0.18);
+}
 }

@@ -25,6 +25,8 @@ module Kedgeree.Haddock
   , moduleHeaderId
   , interfaceId
   , contentsListId
+  , contentOpen
+  , orphansId
   , sectionIdPrefix
   , idAttr
 
@@ -129,6 +131,14 @@ interfaceId = "interface"
 -- | A module page's in-page table of contents.
 contentsListId :: Text
 contentsListId = "contents-list"
+
+-- | The main column, holding the module header and interface.
+contentOpen :: Text
+contentOpen = "<div id=\"content\">"
+
+-- | The orphan-instances block at the foot of a module page.
+orphansId :: Text
+orphansId = "section.orphans"
 
 -- | Section anchors inside @#interface@ are @\<a id="g:N">@.
 sectionIdPrefix :: Text

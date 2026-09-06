@@ -91,9 +91,11 @@ body.js-enabled :is(h2, h3, h4, h5, h6).details-toggle-control:hover { color: va
   /* Code glyph for the Source link (mask-image, inked by currentColor). */
   --kg-icon-source: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 6L2 12L8 18'/%3E%3Cpath d='M16 6L22 12L16 18'/%3E%3C/svg%3E");
 }
-html[data-resolved="dark"] { color-scheme: dark; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-resolved="light"]) { color-scheme: dark; }
+@media screen {
+  html[data-resolved="dark"] { color-scheme: dark; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-resolved="light"]) { color-scheme: dark; }
+  }
 }
 
 html { background: var(--kg-bg); -webkit-text-size-adjust: 100%; }
@@ -193,10 +195,10 @@ body { overflow-wrap: anywhere; }
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  /* .kg-actions (margin-left:auto) does the right-alignment. The page menu sits
-     after it with a small gap. Two auto margins would split the free space and
-     float the search to the centre until the script ran. */
-  margin: 0 0 0 0.5rem;
+  /* Nav links first, then the utilities (.kg-actions, order 2). The menu takes
+     the auto margin, so it and the actions sit together at the right. */
+  order: 1;
+  margin: 0 0 0 auto;
   padding: 0;
   list-style: none;
 }
@@ -336,6 +338,8 @@ html[data-theme="dark"] .kg-theme { --kg-icon: url("icons/moon.svg"); }
   background: var(--kg-bg-raised);
   color: var(--kg-fg-faint);
   cursor: text;
+  /* Buttons do not inherit the page font. */
+  font: inherit;
   font-size: 0.85rem;
 }
 .kg-search:hover { border-color: var(--kg-border-strong); }
@@ -403,9 +407,17 @@ kbd {
   border-left-color: var(--kg-accent);
   font-weight: 600;
 }
-#kg-sidebar .kg-sb-sub a { padding-left: 1.25rem; font-size: 0.83rem; }
-/* Top-level section entries read as parents of the declarations nested under. */
-#kg-sidebar .kg-sb-contents > li > a { color: var(--kg-fg); font-weight: 600; }
+#kg-sidebar .kg-sb-sub a { padding-left: 1.25rem; font-size: 0.85rem; }
+/* Top-level section entries read as parents of the declarations nested under.
+   Section titles are prose, so they wrap rather than truncate. */
+#kg-sidebar .kg-sb-contents > li > a {
+  color: var(--kg-fg);
+  font-weight: 600;
+  white-space: normal;
+  line-height: 1.35;
+  padding-top: 0.3rem;
+  padding-bottom: 0.3rem;
+}
 
 /* The original inline TOC is redundant once the sidebar exists. */
 body.kg-has-sidebar #table-of-contents { display: none; }
@@ -452,11 +464,15 @@ body.kg-has-sidebar #table-of-contents { display: none; }
   color: var(--kg-fg-faint);
 }
 
-/* Section headings (the # g:N anchors). */
-#interface h1 {
+/* Section headings (the # g:N anchors, demoted to h2 by promoteHeadings, plus
+   the orphan-instances heading). Text colour, not link colour: the anchor is
+   signalled by a # glyph on hover. */
+#interface > a[id^="g:"] > h2,
+#interface > h2 {
   font-size: 1.4rem;
   font-weight: 700;
   letter-spacing: -0.01em;
+  color: var(--kg-fg);
   margin: 2.5rem 0 0.5rem;
   padding-bottom: 0.4rem;
   /* A rule that starts defined under the heading and fades out to the right,
@@ -472,9 +488,29 @@ body.kg-has-sidebar #table-of-contents { display: none; }
   background-size: 100% 1px;
   scroll-margin-top: calc(var(--kg-header-h) + 1rem);
 }
-#interface a:hover h1 { text-decoration: none; }
+#interface > a[id^="g:"] { display: block; color: inherit; }
+#interface > a[id^="g:"]:hover { text-decoration: none; }
+#interface > a[id^="g:"] > h2::after {
+  content: "#";
+  margin-left: 0.5ch;
+  color: var(--kg-accent);
+  font-weight: 400;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+#interface > a[id^="g:"]:hover > h2::after,
+#interface > a[id^="g:"]:focus-visible > h2::after { opacity: 1; }
 
 h2, h3, h4 { letter-spacing: -0.01em; }
+
+/* Doc-comment headings (= / == / === in doc text). Scaled under the section
+   headings so the outline reads top-down, and never above the module title. */
+.doc h1:not(.details-toggle-control),
+#description h1:not(.details-toggle-control) { font-size: 1.25rem; font-weight: 700; margin: 1.6rem 0 0.5rem; }
+.doc h2:not(.details-toggle-control),
+#description h2:not(.details-toggle-control) { font-size: 1.1rem; font-weight: 700; margin: 1.4rem 0 0.45rem; }
+.doc h3:not(.details-toggle-control),
+#description h3:not(.details-toggle-control) { font-size: 1rem; font-weight: 700; margin: 1.2rem 0 0.4rem; }
 
 /* Doc sub-headings (=== / ==== in doc comments, e.g. "Examples"). Collapsible
    via Haddock's details-toggle, hence the pointer cursor from
@@ -512,13 +548,13 @@ p { margin: 0.7em 0; }
 .doc ul ul ul { list-style: square; }
 .doc li > ul, .doc li > ol { margin: 0.25em 0; }
 
-/* Inline code in prose. */
+/* Inline code in prose. A faint fill only: a border on every identifier
+   fragments dense paragraphs. */
 .doc code, .doc tt, p code, li code, td.doc code {
   background: var(--kg-code-bg);
-  border: 1px solid var(--kg-border);
-  border-radius: 5px;
-  padding: 0.08em 0.36em;
-  font-size: 0.9em;
+  border-radius: 4px;
+  padding: 0.05em 0.3em;
+  font-size: 0.92em;
 }
 .doc a code { color: var(--kg-link); }
 
@@ -537,7 +573,7 @@ pre {
    loses to .doc code on specificity, leaving the boxed, shrunken code that breaks
    the monospace grid the author aligned arrows to. font-size goes back to the
    block's so every glyph shares one cell width. */
-.doc pre code, pre code { background: none; border: none; padding: 0; font-size: inherit; }
+.doc pre code, pre code { background: none; padding: 0; font-size: inherit; }
 
 /* Interactive examples. Haddock renders >>> blocks as <pre class="screen">,
    with each input as <code class="prompt">&gt;&gt;&gt;</code><strong
@@ -606,20 +642,46 @@ td.src,
   border-radius: 0;
   box-shadow: none;
   padding: 0;
-  padding-right: 2.25rem;
   overflow: visible;
 }
-/* Doc and sub-items sit flush at the left edge, grouped by their captions and
-   dividers. */
-/* Full-width signature. Soft-wraps with a hanging indent so a wrapped line lines
-   up under the first token. An over-long token breaks rather than scrolling. */
-.kg-sig {
-  display: block;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+/* Signatures soft-wrap with a hanging indent so a wrapped line lines up under
+   the first token. An over-long token breaks rather than scrolling. The indent
+   sits on the box (not .kg-sig). #content outranks every sub-item padding rule. */
+#content .src:has(> .kg-sig),
+#content .kg-multiline:not(:has(> .kg-sig)):not(.subs.minimal p) {
   padding-left: 2ch;
   text-indent: -2ch;
 }
+.kg-sig {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* Break points from breakLongSigs (Signature.hs). Each renders a newline until
+   the container query below finds the whole signature fits on one line. The
+   kg-len-N bucket is the signature's visible length; the query container is the
+   signature box itself, so 1ch is one monospace cell. */
+.kg-nl::before { content: "\A"; white-space: pre; }
+.kg-multiline { container-type: inline-size; }
+/* The inline "Minimal complete definition" note never breaks. */
+#interface .subs.minimal .kg-nl::before { content: none; }
+@container (min-width: 57ch) { .kg-len-56 .kg-nl { display: none; } }
+@container (min-width: 61ch) { .kg-len-60 .kg-nl { display: none; } }
+@container (min-width: 65ch) { .kg-len-64 .kg-nl { display: none; } }
+@container (min-width: 69ch) { .kg-len-68 .kg-nl { display: none; } }
+@container (min-width: 73ch) { .kg-len-72 .kg-nl { display: none; } }
+@container (min-width: 77ch) { .kg-len-76 .kg-nl { display: none; } }
+@container (min-width: 81ch) { .kg-len-80 .kg-nl { display: none; } }
+@container (min-width: 85ch) { .kg-len-84 .kg-nl { display: none; } }
+@container (min-width: 89ch) { .kg-len-88 .kg-nl { display: none; } }
+@container (min-width: 93ch) { .kg-len-92 .kg-nl { display: none; } }
+@container (min-width: 97ch) { .kg-len-96 .kg-nl { display: none; } }
+@container (min-width: 101ch) { .kg-len-100 .kg-nl { display: none; } }
+@container (min-width: 105ch) { .kg-len-104 .kg-nl { display: none; } }
+@container (min-width: 109ch) { .kg-len-108 .kg-nl { display: none; } }
+@container (min-width: 113ch) { .kg-len-112 .kg-nl { display: none; } }
+@container (min-width: 117ch) { .kg-len-116 .kg-nl { display: none; } }
+@container (min-width: 121ch) { .kg-len-120 .kg-nl { display: none; } }
+@container (min-width: 125ch) { .kg-len-124 .kg-nl { display: none; } }
 
 /* Synopsis: an in-flow collapsible list of signatures. */
 #synopsis {
@@ -682,7 +744,7 @@ td.src,
   border: none;
   padding: 0.18rem 0;
   font-family: var(--kg-mono);
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   white-space: pre-wrap;
   overflow-x: auto;
 }
@@ -694,24 +756,24 @@ td.src,
 
 /* Type references in a signature are hyperlinks (Source/# links are excluded by
    class, the defined name has no href). Color them as types, matching the source
-   pages, so signatures read as highlighted code. A faint underline keeps them
-   obviously clickable, and it strengthens to the accent on hover. */
+   pages, so signatures read as highlighted code. Every type is a link, so the
+   colour carries that and the underline appears on hover and focus only. */
 .src a[href]:not(.link):not(.selflink),
 .src a[href]:not(.link):not(.selflink):visited {
   color: var(--kg-syn-type);
+  text-decoration: none;
+}
+.src a[href]:not(.link):not(.selflink):hover,
+.src a[href]:not(.link):not(.selflink):focus-visible {
+  color: var(--kg-accent);
   text-decoration: underline;
-  text-decoration-color: color-mix(in srgb, var(--kg-syn-type) 32%, transparent);
   text-decoration-thickness: 1px;
   text-underline-offset: 0.18em;
 }
-.src a[href]:not(.link):not(.selflink):hover {
-  color: var(--kg-accent);
-  text-decoration-color: currentColor;
-}
 
-/* The Source / # links. wrapSourceLinks (Rewrite.hs) groups each declaration's
-   pair into a .kg-srclinks span, pinned to the top-right of the signature.
-   text-indent: 0 keeps the box itself out of the signature's hanging indent. */
+/* The Source / # links. wrapSourceLinks (Signature.hs) groups each declaration's
+   pair into a .kg-srclinks span, pinned to the top-right of the signature and
+   aligned with its first line. Instance cards tuck it into their corner. */
 a.link, a.selflink {
   color: var(--kg-fg-faint);
   font-family: var(--kg-font);
@@ -721,26 +783,29 @@ a.link, a.selflink {
 }
 a.link:hover, a.selflink:hover { color: var(--kg-accent); text-decoration: none; }
 
-/* Source-link chip, pinned top-right of its signature (positioned below). The
-   box turns relative and drops clipping so the chip can sit in the corner. */
+/* The signature box is the chip's positioning context and reserves room on the
+   right so the two never overlap. Clipping is off so the chip is never cut. */
 .src:has(> .kg-srclinks) {
   position: relative;
   overflow: visible;
 }
+.top > .src,
+.subs .src:has(> .kg-srclinks),
+[id="section.orphans"] td.src:has(> .kg-srclinks) { padding-right: 2.6rem; }
 .kg-srclinks {
   position: absolute;
-  right: 0.7rem;
-  bottom: 0;
-  transform: translateY(70%);
+  top: 0;
+  right: 0;
   display: inline-flex;
   align-items: center;
-  gap: 0;
-  padding: 0.22rem 0.28rem;
+  padding: 0.2rem 0.32rem;
   background: var(--kg-bg-raised);
   border: 1px solid var(--kg-border);
   border-radius: var(--kg-radius-s);
   box-shadow: 0 1px 2px var(--kg-shadow);
+  white-space: normal;
   text-indent: 0;
+  line-height: 1;
   z-index: 3;
   transition: border-color 0.12s ease, background-color 0.12s ease;
 }
@@ -753,35 +818,32 @@ a.link:hover, a.selflink:hover { color: var(--kg-accent); text-decoration: none;
 }
 .kg-srclinks a.link::before {
   content: "";
-  width: 0.92rem;
-  height: 0.92rem;
+  width: 0.95rem;
+  height: 0.95rem;
   background-color: currentColor;
   -webkit-mask: var(--kg-icon-source) center / contain no-repeat;
   mask: var(--kg-icon-source) center / contain no-repeat;
 }
-/* Solid background and accent border on hover. */
 .kg-srclinks:hover {
-  background: var(--kg-border-strong);
+  background: var(--kg-accent-soft);
   border-color: var(--kg-accent);
 }
 .kg-srclinks:hover a.link { color: var(--kg-accent); }
-/* Pin every Source chip to the top-right of its signature, aligned with the
-   first line. The signature reserves padding-right so they never overlap. */
-.top > .src > .kg-srclinks,
-.subs .src > .kg-srclinks,
-[id="section.orphans"] td.src > .kg-srclinks {
-  top: 0;
-  right: 0;
-  bottom: auto;
-  transform: none;
+/* Touch screens have no hover, so give the chip a larger target. */
+@media (hover: none) {
+  .kg-srclinks { padding: 0.4rem 0.5rem; }
+  .top > .src,
+  .subs .src:has(> .kg-srclinks),
+  [id="section.orphans"] td.src:has(> .kg-srclinks) { padding-right: 3rem; }
 }
-.subs .src:has(> .kg-srclinks),
-[id="section.orphans"] td.src:has(> .kg-srclinks) { padding-right: 2.25rem; }
-/* On an instance card the chip tucks into the corner: match the card radius,
-   square the inner edges. */
+/* On an instance card the chip tucks into the top-right corner. Only its
+   bottom and left borders are drawn: the card's border is the other two, so no
+   line is doubled. The outer corner hugs the inside of the card's radius. */
 .instances td.src > .kg-srclinks,
 [id="section.orphans"] td.src > .kg-srclinks {
-  border-radius: 0 var(--kg-radius-s) 0 var(--kg-radius-s);
+  box-shadow: none;
+  border-width: 0 0 1px 1px;
+  border-radius: 0 calc(var(--kg-radius-s) - 1px) 0 var(--kg-radius-s);
 }
 /* No-JS: the # permalink fades in on hover (hidden entirely when JS is live). */
 .kg-srclinks a.selflink { opacity: 0; transition: opacity 0.12s; }
@@ -798,8 +860,8 @@ html[data-js] .src.kg-anchorable {
   transition: background-color 0.12s ease, box-shadow 0.12s ease;
 }
 html[data-js] .src.kg-anchorable:hover {
-  background-color: var(--kg-bg-raised);
-  box-shadow: 0 0 0 0.3rem var(--kg-bg-raised);
+  background-color: var(--kg-bg-sunken);
+  box-shadow: 0 0 0 0.3rem var(--kg-bg-sunken);
 }
 /* A re-export carries only a # selflink and no Source. With the # hidden, that
    pill would be empty, so drop it entirely when there is no Source link in it.
@@ -815,12 +877,9 @@ html[data-js] .src.kg-anchorable:hover {
 .instances td[colspan] .kg-srclinks,
 [id="section.orphans"] td[colspan] .kg-srclinks { display: none; }
 
-/* breakLongSigs (Rewrite.hs) breaks long signatures before each top-level
-   operator. It marks the element it breaks (<p>, <td>, <dfn>), which needs
-   pre-wrap so the breaks render. A <p> decl breaks with a bare newline and keeps
-   .kg-sig's hanging indent, so a too-long broken line soft-wraps in line with the
-   operators rather than back to the margin. Other elements use an explicit
-   two-space indent. */
+/* breakLongSigs (Signature.hs) marks long signatures kg-multiline. pre-wrap so
+   the .kg-nl breaks render and a too-long line soft-wraps under the hanging
+   indent rather than back to the margin. */
 .kg-multiline { white-space: pre-wrap; }
 /* The :: -> => operators (wrapped server-side by breakLongSigs). Colored to
    complete the signature syntax highlighting, and kept whole so a narrow viewport
@@ -881,7 +940,7 @@ html[data-js] .src.kg-anchorable:hover {
   top: -0.7rem;
   border-top: 1px solid var(--kg-border);
 }
-.subs td.doc { color: var(--kg-fg-muted); }
+.subs td.doc { color: var(--kg-fg); }
 .subs td.doc.empty { display: none; }
 
 /* Constructors and bundled patterns stack at every width: signature on its own
@@ -899,17 +958,7 @@ html[data-js] .src.kg-anchorable:hover {
 .subs.constructors td.src,
 .subs.bundled-patterns td.src { overflow-x: auto; }
 .subs.constructors td.doc,
-.subs.bundled-patterns td.doc { padding: 0.45rem 0.6rem 0.7rem; }
-/* An Examples section in a constructor or bundled-pattern doc cell breaks out of
-   the cell padding so it spans and aligns like the ones on functions, header and
-   body together (otherwise the body reads narrower than its own header). */
-.subs.constructors td.doc > :is(h2, h3, h4, h5, h6).details-toggle-control,
-.subs.constructors td.doc > details,
-.subs.bundled-patterns td.doc > :is(h2, h3, h4, h5, h6).details-toggle-control,
-.subs.bundled-patterns td.doc > details {
-  margin-left: -0.6rem;
-  margin-right: -0.6rem;
-}
+.subs.bundled-patterns td.doc { padding: 0.45rem 0 0.7rem; }
 .subs.constructors td.doc.empty,
 .subs.bundled-patterns td.doc.empty { display: none; padding: 0; }
 
@@ -941,7 +990,7 @@ html[data-js] .src.kg-anchorable:hover {
 .subs.fields ul li > .doc {
   display: block;
   padding: 0.4rem 0 0;
-  color: var(--kg-fg-muted);
+  color: var(--kg-fg);
 }
 .subs.fields ul li > .doc p { margin: 0; }
 
@@ -1041,8 +1090,8 @@ body.js-enabled [id="section.orphans"] tr:has(> td.src):hover .collapser::before
   border: none;
   border-radius: 0;
   box-shadow: none;
-  padding: 0.55rem 0.75rem 0.55rem 0.85rem;
-  font-size: 0.83rem;
+  padding: 0.55rem 2.6rem 0.55rem 0.85rem;
+  font-size: 0.85rem;
 }
 /* (Chevron sizing/placement is unified at the .expander/.collapser definition.
    The instance card chevron inherits it and so lines up with the card rail.) */
@@ -1055,8 +1104,8 @@ body.js-enabled [id="section.orphans"] tr:has(> td.src):hover .collapser::before
 .instances td.doc,
 [id="section.orphans"] td.doc {
   padding: 0.1rem 0.85rem 0.9rem;
-  color: var(--kg-fg-muted);
-  font-size: 0.85rem;
+  color: var(--kg-fg);
+  font-size: 0.9rem;
 }
 .instances td.doc.empty,
 [id="section.orphans"] td.doc.empty { display: none; }
@@ -1097,7 +1146,7 @@ html[data-js] [id="section.orphans"] tr:has(> td[colspan]):not(:has(> td[colspan
 [id="section.orphans"] td[colspan] > details > p {
   margin: 0.4rem 0 0.5rem;
   color: var(--kg-fg-faint);
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
 }
 
 /* Inside the body, nested rows (associated-type / method sub-tables) are flat,
@@ -1131,7 +1180,7 @@ html[data-js] [id="section.orphans"] tr:has(> td[colspan]):not(:has(> td[colspan
   box-shadow: none;
   border-radius: 0;
   padding: 0.12rem 0;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   white-space: normal;
   overflow-wrap: anywhere;
 }
@@ -1152,8 +1201,6 @@ table.info {
 table.info th, table.info td { padding: 0.25rem 0.6rem; text-align: left; }
 table.info th { font-weight: 600; color: var(--kg-fg-faint); }
 
-/* "@since" / deprecation notes. */
-.doc em { color: var(--kg-fg-muted); }
 
 /* ==========================================================================
    Footer
@@ -1356,7 +1403,7 @@ table.info th { font-weight: 600; color: var(--kg-fg-faint); }
 }
 .subs.arguments td.doc {
   padding: 0.35rem 0.2rem 0;
-  color: var(--kg-fg-muted);
+  color: var(--kg-fg);
 }
 .subs.arguments td.doc.empty { display: none; }
 .subs.arguments td.doc p { margin: 0; }
@@ -1421,14 +1468,15 @@ table.info th { font-weight: 600; color: var(--kg-fg-faint); }
 /* Fixity annotations (infixl 6 …). */
 /* Residual Haddock float-clear element (stripped server-side, hidden as a guard). */
 .rightedge { display: none; }
-/* Haddock appends the operator fixity inline at the end of the signature. Drop it
-   to its own line below so it never wraps as part of the type. */
+/* Haddock appends the operator fixity at the end of the signature. Kept inline
+   as one unbreakable unit, quiet, so it never wraps inside itself. */
 .fixity {
-  display: block;
-  margin-top: 0.35rem;
-  text-indent: -2ch;
+  display: inline-block;
+  margin-left: 1.5ch;
+  text-indent: 0;
+  white-space: nowrap;
   color: var(--kg-fg-faint);
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   font-style: normal;
 }
 
@@ -1465,7 +1513,7 @@ table.info th { font-weight: 600; color: var(--kg-fg-faint); }
 /* Definition lists used in docs (argument descriptions etc.). */
 .doc dl { margin: 0.6em 0; }
 .doc dt { font-weight: 600; color: var(--kg-fg); }
-.doc dd { margin: 0 0 0.5em 1.5em; color: var(--kg-fg-muted); }
+.doc dd { margin: 0 0 0.5em 1.5em; }
 
 /* Doc tables. */
 .doc table { border-collapse: collapse; margin: 0.8em 0; display: block; max-width: 100%; overflow-x: auto; }
@@ -1494,6 +1542,7 @@ a:focus-visible,
 button:focus-visible,
 summary:focus-visible,
 input:focus-visible,
+.details-toggle-control:focus-visible,
 .kg-search:focus-visible,
 #kg-sidebar a:focus-visible {
   outline: 2px solid var(--kg-accent);
@@ -1541,8 +1590,8 @@ pre::-webkit-scrollbar-thumb:hover {
   background-clip: content-box;
 }
 
-/* JS-built header actions + sidebar home. */
-.kg-actions { display: flex; align-items: center; gap: 0.5rem; margin-left: auto; }
+/* Header actions (after the nav links) + sidebar home. */
+.kg-actions { display: flex; align-items: center; gap: 0.5rem; order: 2; margin-left: 0.75rem; }
 /* The sidebar heading: the module (or page) name, linking back to its header.
    Scoped under #kg-sidebar so it outranks `#kg-sidebar a` (an id selector). */
 #kg-sidebar .kg-sb-home {
@@ -1601,7 +1650,7 @@ pre::-webkit-scrollbar-thumb:hover {
      drawer + search), and it's what blows out the width. Hide it. */
   #package-header #page-menu { display: none; }
   #package-header { gap: 0.5rem; }
-  .kg-actions { gap: 0.4rem; }
+  .kg-actions { gap: 0.4rem; margin-left: auto; }
 
   #kg-sidebar {
     position: fixed;
@@ -1685,7 +1734,7 @@ body.kg-landing {
 .kg-landing-header h1 {
   margin: 0;
   font-size: 2rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.015em;
   color: var(--kg-fg);
 }
@@ -1754,3 +1803,25 @@ body.kg-landing {
   mask: var(--kg-chevron) center / contain no-repeat;
 }
 .kg-pkg:hover::after { background-color: var(--kg-accent); }
+
+/* ==========================================================================
+   Print
+   ========================================================================== */
+@media print {
+  body { display: block; background: #fff; color: #000; font-size: 11pt; }
+  #package-header, #kg-sidebar, .kg-menu-toggle, .kg-srclinks, .kg-overlay,
+  .kg-src-toolbar, #footer .kg-credit { display: none !important; }
+  #content { max-width: none; padding: 0; }
+  .doc p, .doc ul, .doc ol, .doc dl, .doc blockquote { max-width: none; }
+  /* Everything collapsible opens. The native summaries stay hidden. */
+  details > :not(summary), .hide { display: block !important; }
+  details > summary.hide-when-js-enabled { display: none !important; }
+  html[data-js] .instances tr:has(> td[colspan]),
+  html[data-js] [id="section.orphans"] tr:has(> td[colspan]) { display: block !important; }
+  .top, .instances tr, pre { break-inside: avoid; }
+  a, a[href]:link, a[href]:visited { color: inherit; text-decoration: none; }
+  pre, p.src, td.src, .subs.arguments td.src, .doc code {
+    background: none !important;
+    border-color: #bbb !important;
+  }
+}

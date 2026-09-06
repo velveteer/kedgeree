@@ -70,11 +70,17 @@ instancesControl =
     , "</ul></details></li>"
     ]
 
--- | Append the sidebar (rendered from the plain page @source@) to @\<body>@
--- and set @kg-has-sidebar@, plus @kg-sidebar-min@ for the minimal kind.
+-- | Insert the sidebar (rendered from the plain page @source@) before
+-- @#content@, so it precedes the content in DOM and tab order (falls back to
+-- the end of @\<body>@), and set @kg-has-sidebar@, plus @kg-sidebar-min@ for
+-- the minimal kind.
 injectSidebar :: Text -> Text -> Text
 injectSidebar source html = case renderSidebar source of
   Just (nav, rich) ->
     addBodyClass "kg-has-sidebar" $
-      (if rich then id else addBodyClass "kg-sidebar-min") (insertBeforeClose "</body>" nav html)
+      (if rich then id else addBodyClass "kg-sidebar-min") (place nav html)
   Nothing -> html
+  where
+    place nav h
+      | Haddock.contentOpen `T.isInfixOf` h = insertBeforeClose Haddock.contentOpen nav h
+      | otherwise = insertBeforeClose "</body>" nav h

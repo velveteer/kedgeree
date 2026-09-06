@@ -2,9 +2,10 @@
 
 -- | Server-side signature layout: group Source/# links, inline per-argument
 -- type bars, break long signatures at top-level operators. Output is unmarked,
--- so 'wrapSignatures' recognises an already-processed page.
+-- so 'unwrapSignatures' strips a previous run's markup before the passes run.
 module Kedgeree.Signature
   ( wrapSignatures
+  , unwrapSignatures
   , wrapSourceLinks
   , wrapArgSigs
   , breakLongSigs
@@ -18,11 +19,104 @@ import qualified Data.Text as T
 import qualified Kedgeree.Haddock as Haddock
 import Kedgeree.Html (decodeEntities, stripTags, visibleLength)
 
--- | All three passes. No-op on a page that already carries @kg-srclinks@.
+-- | All three passes, after undoing any previous run's.
 wrapSignatures :: Text -> Text
-wrapSignatures html
-  | "kg-srclinks" `T.isInfixOf` html = html
-  | otherwise = breakLongSigs (wrapArgSigs (wrapSourceLinks html))
+wrapSignatures = breakLongSigs . wrapArgSigs . wrapSourceLinks . unwrapSignatures
+
+-- | Strip a previous run's signature markup so the passes run afresh on a
+-- stale or forced re-theme: the kg-sig, kg-srclinks, kg-op and kg-grp wrappers
+-- are unwrapped, kg-nl break markers and inlined kg-argsig bars are dropped, and
+-- the kg-multiline / kg-len-N classes removed. Earlier builds put the links
+-- before the signature and broke it with hard newlines; those are moved after
+-- it and flattened. No-op on a plain Haddock page.
+unwrapSignatures :: Text -> Text
+unwrapSignatures html
+  | not ("kg-srclinks" `T.isInfixOf` html) = html
+  | otherwise = mapSrcElems legacyOrder (unwrapSpans (dropClasses html))
+  where
+    dropClasses t = case T.splitOn "class=\"src kg-multiline" t of
+      (s0 : segs) -> T.concat (s0 : map (("class=\"src" <>) . T.dropWhile (/= '"')) segs)
+      [] -> t
+
+    -- Chunks start at a '<'. Spans are tracked on a stack: Keep is copied,
+    -- Drop loses its tags, DropAll loses its content too.
+    unwrapSpans t = case T.splitOn "<" t of
+      (s0 : chunks) -> T.concat (s0 : go [] chunks)
+      [] -> t
+    go _ [] = []
+    go stack (c : cs)
+      | "/span>" `T.isPrefixOf` c = case stack of
+          (Drop : st) -> textAfter c : go st cs
+          (DropAll : st) -> textAfterClosing st c : go st cs
+          (Keep : st) -> emit ("<" <> c) : go st cs
+          [] -> ("<" <> c) : go [] cs
+      | "span " `T.isPrefixOf` c =
+          let tag = T.takeWhile (/= '>') c
+              mode
+                | any ((`T.isInfixOf` tag) . spanClass) ["kg-sig", "kg-srclinks", "kg-op", "kg-grp", "kg-nl"] = Drop
+                | spanClass "kg-argsig" `T.isInfixOf` tag = DropAll
+                | otherwise = Keep
+           in case mode of
+                Keep -> emit ("<" <> c) : go (Keep : stack) cs
+                Drop -> emit (textAfter c) : go (Drop : stack) cs
+                DropAll -> go (DropAll : stack) cs
+      | otherwise = emit ("<" <> c) : go stack cs
+      where
+        emit s = if DropAll `elem` stack then "" else s
+        textAfter s = emit (T.drop 1 (T.dropWhile (/= '>') s))
+        -- Text after the tag closing a DropAll span, kept unless one still encloses it.
+        textAfterClosing st s = if DropAll `elem` st then "" else T.drop 1 (T.dropWhile (/= '>') s)
+    spanClass k = "class=\"" <> k <> "\""
+
+    -- Hard breaks ("\n" before an operator, "\n  " in cells) collapse back to
+    -- spaces, and leading Source / # anchors move after the signature.
+    legacyOrder open inner = (open, fix (flatten inner))
+      where
+        fix s = case leadingAnchors s of
+          Just (anchors, sig) -> T.stripEnd sig <> " " <> anchors
+          Nothing -> s
+    flatten = T.replace "\n" " " . T.replace " \n" "\n" . T.replace "\n  " "\n"
+    leadingAnchors s
+      | isLinkAnchor s =
+          let (a1, r1) = takeAnchor s
+              (ws, r2) = T.span isSpace r1
+           in if isLinkAnchor r2
+                then let (a2, r3) = takeAnchor r2 in Just (a1 <> ws <> a2, T.stripStart r3)
+                else Just (a1, T.stripStart r1)
+      | otherwise = Nothing
+    isLinkAnchor s =
+      "<a " `T.isPrefixOf` s
+        && let tag = T.takeWhile (/= '>') s
+            in classAttr Haddock.sourceLinkClass `T.isInfixOf` tag || classAttr Haddock.selfLinkClass `T.isInfixOf` tag
+
+data SpanMode = Keep | Drop | DropAll
+  deriving (Eq)
+
+classAttr :: Text -> Text
+classAttr c = "class=\"" <> c <> "\""
+
+-- | An anchor element through its @</a>@, and the rest.
+takeAnchor :: Text -> (Text, Text)
+takeAnchor t = case T.breakOn "</a>" t of
+  (a, b)
+    | T.null b -> (a, b)
+    | otherwise -> (a <> "</a>", T.drop 4 b)
+
+-- | Apply @f open inner@ to every @p.src@, @td.src@ and @dfn.src@ element.
+mapSrcElems :: (Text -> Text -> (Text, Text)) -> Text -> Text
+mapSrcElems f =
+  goElem Haddock.srcParagraphOpen "</p>"
+    . goElem Haddock.srcCellOpen "</td>"
+    . goElem Haddock.srcDfnOpen "</dfn>"
+  where
+    goElem open close t = case T.breakOn open t of
+      (before, rest)
+        | T.null rest -> before
+        | otherwise ->
+            let afterOpen = T.drop (T.length open) rest
+                (inner, afterInner) = T.breakOn close afterOpen
+                (open', inner') = f open inner
+             in before <> open' <> inner' <> close <> goElem open close (T.drop (T.length close) afterInner)
 
 -- | Wrap each declaration's trailing Source (@a.link@) and @#@ (@a.selflink@)
 -- links in @span.kg-srclinks@. A lone selflink (re-export) is wrapped too.
@@ -51,14 +145,6 @@ wrapSourceLinks = T.concat . go
                     if classAttr Haddock.selfLinkClass `T.isInfixOf` tag
                       then before : "<span class=\"kg-srclinks\">" : anchor : "</span>" : go rest
                       else before : anchor : go rest
-
-    classAttr c = "class=\"" <> c <> "\""
-
-    -- Anchor element through its @</a>@.
-    takeAnchor t = case T.breakOn "</a>" t of
-      (a, b)
-        | T.null b -> (a, b)
-        | otherwise -> (a <> "</a>", T.drop 4 b)
 
     openTag = T.takeWhile (/= '>')
 
@@ -129,51 +215,49 @@ data Layout = Layout
   -- ^ break at top-level operators
   , lyBreakForall :: !Bool
   -- ^ break after a top-level forall dot
-  , lyWrapped :: !Bool
-  -- ^ signature sits in @span.kg-sig@ (hanging indent via CSS, bare @\\n@ breaks)
   }
 
 -- | Color @::@ @->@ @=>@ (@span.kg-op@), keep short comma-free top-level groups
 -- unbreakable (@span.kg-grp@), and for long signatures (> 52 visible chars)
--- break before each top-level operator and after a long forall or a type
--- synonym @=@, marking the element @kg-multiline@. Applies to @p.src@, @td.src@
--- and @dfn.src@.
+-- mark a break point (@span.kg-nl@) before each top-level operator and after a
+-- long forall or a type synonym @=@. The element gets @kg-multiline@ and a
+-- @kg-len-N@ bucket (visible length rounded up to 4, capped at 128) so CSS can
+-- hide the breaks when the signature fits its container. Applies to @p.src@,
+-- @td.src@ and @dfn.src@.
 breakLongSigs :: Text -> Text
-breakLongSigs =
-  goElem Haddock.srcParagraphOpen "</p>"
-    . goElem Haddock.srcCellOpen "</td>"
-    . goElem Haddock.srcDfnOpen "</dfn>"
+breakLongSigs = mapSrcElems layoutElem
   where
-    goElem open close t = case T.breakOn open t of
-      (before, rest)
-        | T.null rest -> before
-        | otherwise ->
-            let afterOpen = T.drop (T.length open) rest
-                (inner, afterInner) = T.breakOn close afterOpen
-                (inner', broke) = processSig inner
-                open'
-                  | broke = T.replace "class=\"src\"" "class=\"src kg-multiline\"" open
-                  | otherwise = open
-             in before <> open' <> inner' <> close <> goElem open close (T.drop (T.length close) afterInner)
+    layoutElem open inner =
+      let (inner', broke) = processSig inner
+          open' = case broke of
+            Just len ->
+              T.replace
+                "class=\"src\""
+                ("class=\"src kg-multiline kg-len-" <> T.pack (show (bucket len)) <> "\"")
+                open
+            Nothing -> open
+       in (open', inner')
 
-    -- Links first (CSS floats them), then the signature in span.kg-sig. The
-    -- trailing rightedge span is dropped: its newline renders in pre-wrap.
+    -- The signature in span.kg-sig, then its links (the chip trails the last
+    -- line). The trailing rightedge span is dropped: its newline renders in
+    -- pre-wrap.
     processSig inner =
       let (beforeLinks, links) = T.breakOn "<span class=\"kg-srclinks\">" inner
           sig = T.stripEnd (fst (T.breakOn Haddock.rightEdgeOpen beforeLinks))
           hasLinks = not (T.null links)
-          long = visibleLength sig > 52
-          sig' = highlight (Layout long (forallLong sig) hasLinks) sig
+          len = visibleLength sig
+          long = len > 52
+          sig' = highlight (Layout long (forallLong sig)) sig
           out
-            | hasLinks = links <> "<span class=\"kg-sig\">" <> sig' <> "</span>"
+            | hasLinks = "<span class=\"kg-sig\">" <> sig' <> "</span>" <> links
             | otherwise = sig'
-       in (out, long)
+       in (out, if long then Just len else Nothing)
+
+    bucket len = min 128 (((len + 3) `div` 4) * 4)
 
     highlight ly = T.pack . go (Scan 0 False False False) . T.unpack
       where
-        newline
-          | lyWrapped ly = "\n"
-          | otherwise = "\n  "
+        newline = "<span class=\"kg-nl\"></span>"
         go _ [] = []
         -- Tags pass through.
         go st ('<' : cs) =
@@ -202,8 +286,9 @@ breakLongSigs =
                     | scFundep st || not (lyLong ly && scDepth st == 0 && scSeen st) = ""
                     | otherwise = newline
                in brk ++ "<span class=\"kg-op\">" ++ op ++ "</span>" ++ go st {scSeen = True} rest
-          -- Break after a top-level forall '.' or synonym '='.
-          | breakAfter c = c : newline ++ go st {scSeen = True} (dropWhile (== ' ') cs)
+          -- Break after a top-level forall '.' or synonym '='. The space stays
+          -- (before the marker) so the text is unchanged.
+          | breakAfter c = c : ' ' : newline ++ go st {scSeen = True} (dropWhile (== ' ') cs)
           | c == ' ' || c == '\t' || c == '\n' = c : go st cs
           | otherwise = c : go st {scSeen = True} cs
           where
